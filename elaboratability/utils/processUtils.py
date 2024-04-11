@@ -65,14 +65,46 @@ def get_vector_atoms(mol, precursor, map):
     """
     mol, precursor = Chem.Mol(mol), Chem.Mol(precursor)
     mol_substruct_match = list(map.keys())
-    vectors_in_mol = set()
+
+    vectors_in_mol = []
+    vectors = []
+    vector_neighbours_in_precursor = []
+
     for mol_at in mol_substruct_match:
-        neighbours = [atom.GetIdx() for atom in mol.GetAtomWithIdx(mol_at).GetNeighbors() if atom.GetIdx() not in mol_substruct_match]
-        if len(neighbours) > 0:
-            vectors_in_mol.add(mol_at)
-    vectors_in_mol = list(vectors_in_mol)
-    vectors = [map[mol_vector] for mol_vector in vectors_in_mol]
-    return vectors, vectors_in_mol
+        # get which molecule is a vector atom by checking which has a neighbour not in the MCS
+        mol_vector_neighbours = [atom.GetIdx() for atom in mol.GetAtomWithIdx(mol_at).GetNeighbors() if atom.GetIdx() not in mol_substruct_match]
+
+        # if yes, then check that it is well placed in the precursor (attached to terminal atom or hydrogen to form vector)
+        if len(mol_vector_neighbours) > 0:
+
+            vector = map[mol_at]  # get the equivalent vector atom in the precursor
+
+            # record the idxs of the neighbours to use (empty if hydrogen)
+            filt_neighbours = []
+            vector_check = False
+
+            # get neighbouring atoms to vector in the precursor
+            neighbours = [at.GetIdx() for at in precursor.GetAtomWithIdx(vector).GetNeighbors()]
+            vector_neighbours = [idx for idx in neighbours if idx not in map.values()]
+
+            # if no neighbours, vector passes
+            if len(vector_neighbours) == 0:
+                vector_check = True
+
+            # else, check that attached neighbours are terminal atoms
+            else:
+                for vector_neighbour in vector_neighbours:  # only neighbour should be the original vector atom
+                    vector_neighbour_neighbours = [at.GetIdx() for at in precursor.GetAtomWithIdx(vector_neighbour).GetNeighbors() if at.GetIdx() != vector]
+                    if len(vector_neighbour_neighbours) == 0:
+                        filt_neighbours.append(vector_neighbour)
+                        vector_check = True
+
+            if vector_check:
+                vectors.append(vector)
+                vectors_in_mol.append(mol_at)
+                vector_neighbours_in_precursor.append(filt_neighbours)
+
+    return vectors, vectors_in_mol, vector_neighbours_in_precursor
 
 
 def constrained_embed_of_precursor(mol: Mol, precursor: Mol, mcs: Mol, map: dict):
