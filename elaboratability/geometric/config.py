@@ -1,5 +1,5 @@
 import numpy as np
-from notebook_utils import load_json
+from elaboratability.utils.notebookUtils import load_json
 
 atom_numbers = {
     'C': 6,

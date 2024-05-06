@@ -13,6 +13,20 @@ from rdkit import RDLogger
 RDLogger.DisableLog('rdApp.*')
 
 
+####################################################### UTILS #########################################################
+
+def load_json(fname):
+    with open(fname, "r") as f:
+        data = json.load(f)
+    return data
+
+
+def dump_json(data, fname):
+    with open(fname, 'w') as f:
+        json.dump(data, f)
+
+################################################ CODE FOR EMBEDDING ###################################################
+
 def get_vector_idxs(mol, asAsterisk=True):
     if asAsterisk:
         attach_idx = mol.GetSubstructMatch(Chem.MolFromSmiles('*'))[0]
@@ -39,7 +53,6 @@ def get_rotation_matrix(vec2, vec1=np.array([1, 0, 0])):
     vec1 = np.reshape(vec1, (1, -1))
     vec2 = np.reshape(vec2, (1, -1))
     r = R.align_vectors(vec2, vec1)
-    # print([i for i in r])
     return r[0].as_matrix()
 
 
@@ -57,10 +70,22 @@ def get_rotated_coord(ref_coordA, coord, rotat):
 
 
 def align_conf(m, confId, ref_attach_coords, ref_adj_coords, return_mol=False):
+    """
+    Align a specific conformer for a molecule to reference atom coordinates.
+
+    :param m:
+    :param confId:
+    :param ref_attach_coords:
+    :param ref_adj_coords:
+    :param return_mol:
+    :return:
+    """
     if return_mol:  # if we are only performing alignment on a mol with single conformer (confId=0)
         mol = Chem.Mol(m)
     else:  # if we are embedding the original decorators (single mols with multiple conformers)
         mol = m
+
+    # get the coordinates of the atoms from the embedding molecule to use for alignment
     attach_idx, adj_idx = get_vector_idxs(mol)
     other_idxs = [atom.GetIdx() for atom in mol.GetAtoms() if atom.GetIdx() not in [attach_idx, adj_idx]]
     conf = mol.GetConformer(confId)
@@ -68,12 +93,13 @@ def align_conf(m, confId, ref_attach_coords, ref_adj_coords, return_mol=False):
     adj_coords = np.array(conf.GetAtomPosition(adj_idx))
     other_coords = [np.array(conf.GetAtomPosition(idx)) for idx in other_idxs]
 
-    # ref_attach_coords, ref_adj_coords = get_anchor_mol()
+    # translate the molecule to the reference coordinates
     translation = calc_translation(ref_adj_coords, adj_coords)
     adj_coords = ref_adj_coords
     attach_coords = translate_coords(translation, attach_coords)
     other_coords = [translate_coords(translation, coords) for coords in other_coords]
-    # print(ref_adj_coords, ref_attach_coords)
+
+    # rotate the molecule so it now aligns with the reference vector
     rotat_mat = get_rotation_matrix_for_mol(ref_adj_coords, ref_attach_coords, attach_coords)
     attach_coords = get_rotated_coord(adj_coords, attach_coords, rotat_mat)
     other_coords = [get_rotated_coord(adj_coords, coords, rotat_mat) for coords in other_coords]
@@ -88,6 +114,11 @@ def align_conf(m, confId, ref_attach_coords, ref_adj_coords, return_mol=False):
 
 
 def get_anchor_mol():
+    """
+    An anchor molecule used as reference coordinates for aligning all decorators. Coordinates are always the same.
+
+    :return:
+    """
     anchor_mol = Chem.MolFromSmiles('CC')
     AllChem.EmbedMolecule(anchor_mol, randomSeed=1)
     conf = anchor_mol.GetConformer()
@@ -95,18 +126,35 @@ def get_anchor_mol():
     return at1_pos, at2_pos
 
 
-def embed(smi, num_confs):
+def embed(smi: str, num_confs: int):
+    """
+    Embed the molecule and align all conformers to the same reference point. Return the molecule and the list of
+    conformer IDs.
+
+    :param smi:
+    :param num_confs:
+    :return:
+    """
     mol = Chem.MolFromSmiles(smi)
     mol = Chem.AddHs(mol)
     confIds = AllChem.EmbedMultipleConfs(mol, num_confs)
     mol = Chem.RemoveHs(mol)
-    # print(list(confIds))
     ref_attach_coords, ref_adj_coords = get_anchor_mol()
     for confId in confIds:
         align_conf(mol, confId, ref_attach_coords, ref_adj_coords)
     return mol, confIds
 
-def embed_and_align_to_anchor(smi, n_rotat):
+
+def embed_and_align_to_anchor(smi: str, n_rotat: int):
+    """
+    Generate several embeddings for each decorator SMILES according to the number of rotatable bonds. Return the
+    embedded molecule (has multiple conformers attached) and the number of conformers generated).
+
+    :param smi:
+    :param n_rotat:
+    :return:
+    """
+    n_conf = None
     if n_rotat <= 7:
         n_conf = 50
     if 8 <= n_rotat <= 12:
@@ -117,8 +165,16 @@ def embed_and_align_to_anchor(smi, n_rotat):
     emb, _ = embed(smi, n_conf)
     return emb, n_conf
 
+################################################ CODE FOR ROTATIONS ###################################################
 
 def rotate_points(points, axis, angle):
+    """
+
+    :param points:
+    :param axis:
+    :param angle:
+    :return:
+    """
     # Ensure axis is a unit vector
     axis = axis / np.linalg.norm(axis)
     # Compute rotation matrix using Rodrigues' rotation formula
@@ -145,7 +201,13 @@ def as_point3D(coords):
         float(coords[2]))
 
 
-def get_rotated_coords(mol, confId=0):
+def get_rotated_coords(mol, confId=0, angleInterval=30):
+    """
+
+    :param mol:
+    :param confId:
+    :return:
+    """
     conf = mol.GetConformer(confId)
 
     dummy_idx = [atom.GetIdx() for atom in mol.GetAtoms() if atom.GetAtomicNum() == 0][0]
@@ -157,7 +219,7 @@ def get_rotated_coords(mol, confId=0):
     other_idxs = [idx for idx in range(mol.GetNumAtoms()) if idx not in [dummy_idx, adj_idx]]
     coords = np.array([np.array(conf.GetAtomPosition(idx)) for idx in other_idxs])
 
-    rotat_angles = [i for i in range(0,360,30)]
+    rotat_angles = [i for i in range(0,360,angleInterval)]
     all_coords = []
 
     all_idxs = other_idxs + [dummy_idx, adj_idx]
@@ -172,6 +234,13 @@ def get_rotated_coords(mol, confId=0):
 
 
 def cluster_mol_conformers_wout_alignment(mol, n_cids, distThreshold=1.5):
+    """
+
+    :param mol:
+    :param n_cids:
+    :param distThreshold:
+    :return:
+    """
     from rdkit.Chem import rdMolAlign
     from rdkit.ML.Cluster import Butina
 
@@ -185,7 +254,15 @@ def cluster_mol_conformers_wout_alignment(mol, n_cids, distThreshold=1.5):
     clusts = Butina.ClusterData(dists, len(cids), distThreshold, isDistData=True, reordering=True)
     return clusts
 
-def cluster_rotations(mol, n_confs, n_rotats=12):
+
+def cluster_rotations(mol, n_confs, n_rotats=12, distThreshold=1.5, angleInterval=30):
+    """
+
+    :param mol:
+    :param n_confs:
+    :param n_rotats:
+    :return:
+    """
     if mol.GetNumAtoms() == 2:
         return mol
     new_mol = Chem.Mol(mol)
@@ -193,7 +270,7 @@ def cluster_rotations(mol, n_confs, n_rotats=12):
 
     for i in range(n_confs):
         conf = mol.GetConformer(i)
-        coord_idxs, new_coords = get_rotated_coords(mol, i)
+        coord_idxs, new_coords = get_rotated_coords(mol, i, angleInterval)
         for j, coords in enumerate(new_coords):
             new_conf_idx = i*(n_rotats) + j
             new_mol.AddConformer(conf, assignId=new_conf_idx)
@@ -204,7 +281,7 @@ def cluster_rotations(mol, n_confs, n_rotats=12):
     clustered_mol = Chem.Mol(mol)
     clustered_mol.RemoveAllConformers()
 
-    clusters = cluster_mol_conformers_wout_alignment(new_mol, n_cids=new_mol.GetNumConformers(), distThreshold=1.5)
+    clusters = cluster_mol_conformers_wout_alignment(new_mol, n_cids=new_mol.GetNumConformers(), distThreshold=distThreshold)
     for c, cluster in enumerate(clusters):
         centroid = cluster[0]
         add_conf = new_mol.GetConformer(centroid)
@@ -214,27 +291,23 @@ def cluster_rotations(mol, n_confs, n_rotats=12):
     return clustered_mol
 
 
-def load_json(fname):
-    with open(fname, "r") as f:
-        data = json.load(f)
-    return data
-
-def dump_json(data, fname):
-    with open(fname, 'w') as f:
-        json.dump(data, f)
-
 def main():
     parser = ArgumentParser()
-    parser.add_argument('--decs_json')
+    parser.add_argument('--decs_json', help='a json file containing a list of decorator SMILES')
     parser.add_argument('--n_cpus', type=int)
     parser.add_argument('--output_sdf')
     parser.add_argument('--output_json')
+    parser.add_argument('--n_rotations', type=int, default=12)
+    parser.add_argument('--distThreshold', type=float, default=1.5)
+    parser.add_argument('--angle_interval', type=int, default=30)
     args = parser.parse_args()
 
+    # read in decorators and calculate number of rotatable bonds (to decide how many embeddings to create)
     common_decs = load_json(args.decs_json)
     mols = [Chem.MolFromSmiles(s) for s in common_decs]
     rotats = [rdMolDescriptors.CalcNumRotatableBonds(mol) for mol in mols]
 
+    # generate embedded decorators and align them to the same reference point
     results = Parallel(n_jobs=args.n_cpus, backend="multiprocessing")(
         delayed(embed_and_align_to_anchor)(smi, n_rotat) for smi, n_rotat
         in tqdm(zip(common_decs, rotats), total=len(common_decs),
@@ -247,14 +320,17 @@ def main():
     print(len(embedded_mols), 'read')
     print('generating rotations and clustering')
 
+    # rotate each embedded conformer and cluster the conformations to get a representative set of rotated, clustered
+    # embeddings
     new_mols = Parallel(n_jobs=args.n_cpus, backend="multiprocessing")(
-        delayed(cluster_rotations)(mol, n_conf) for mol, n_conf
+        delayed(cluster_rotations)(mol, n_conf, args.n_rotations, args.angle_interval) for mol, n_conf
         in tqdm(zip(embedded_mols, n_confs), total=len(embedded_mols), leave=True, position=0)
     )
 
     print('new mols generated')
     print('writing sdf')
 
+    # write the mols to file
     all_ids = []
     all_mol_ids = []
     all_smi = []

@@ -289,3 +289,33 @@ def get_possible_interacting_atoms_and_min_dists(mol: Mol, pdb_file: str, hbond_
     closest_dists = {idx: np.min(dists[idx]) for idx in range(len(mol_coords))}
 
     return mol_interacting_ids, closest_dists
+
+
+def check_vector_leads_to_elab_of_size(mol, mcs_atoms, vector, min_ats=3):
+    """
+    Select elaboratable vectors by checking that they lead to an elaboration of a specific size (i.e. not just the
+    addition of one atom)
+
+    :param mol:
+    :param mcs_atoms:
+    :param vector:
+    :param min_ats:
+    :return:
+    """
+    from elaboratability.utils.utils import get_intersect
+    og_atoms = [atom.GetIdx() for atom in mol.GetAtoms() if atom.GetAtomicNum() != 1]
+    vector_atom = mol.GetAtomWithIdx(vector)
+    neighbours = [i for i in vector_atom.GetNeighbors() if i.GetAtomicNum() != 1 and i.GetIdx() not in mcs_atoms]
+    vector_check = False
+    for neigh in neighbours:
+        neigh_idx = neigh.GetIdx()
+        bond = mol.GetBondBetweenAtoms(vector, neigh_idx)
+        fragments = Chem.FragmentOnBonds(mol, [bond.GetIdx()])
+        fragment_idxs = Chem.GetMolFrags(fragments)
+        relevant_fragments = [idxs for idxs in fragment_idxs if len(get_intersect(idxs, mcs_atoms)) == 0]
+        for fragment in relevant_fragments:
+            n_ats = len(get_intersect(og_atoms, fragment))
+            if n_ats >= min_ats:
+                vector_check = True
+
+    return vector_check
