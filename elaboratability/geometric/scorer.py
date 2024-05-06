@@ -12,7 +12,8 @@ class Scorer():
     def __init__(self, ligand, pdb_file, cloud, pocket_dist=config.POCKET_DIST, clash_cutoff=config.CLASH_CUTOFF,
                  hbond_cutoff=config.HBOND_CUTOFF, cloud_attach_coords=config.CLOUD_ATTACH_COORDS,
                  cloud_adj_coords=config.CLOUD_ADJ_COORDS, atom_dict=proConfig.ATOM_DICT, check_lig_clash=config.CHECK_LIG_CLASH,
-                 check_for_ints=config.CHECK_FOR_INTS):
+                 check_for_ints=config.CHECK_FOR_INTS, total_mol_elabs=config.TOTAL_MOLS, min_prop_mols_added=config.MIN_PROP_MOLS_ADDED,
+                 max_prop_mols_added=config.MAX_PROP_MOLS_ADDED, min_ints_reached=config.MIN_INTS_REACHED):
         """
 
         :param ligand:
@@ -26,6 +27,9 @@ class Scorer():
         :param atom_dict:
         :param check_lig_clash:
         :param check_for_ints:
+        :param total_mol_elabs:
+        :param min_mols_added:
+        :param min_ints_reached:
         """
         self.ligand = Chem.AddHs(ligand, addCoords=True)
         self.pdb_file = pdb_file
@@ -37,6 +41,12 @@ class Scorer():
         # scorer settings
         self.check_lig_clash = check_lig_clash
         self.check_for_ints = check_for_ints
+        self.total_mol_elabs = total_mol_elabs
+        self.min_prop_mols_added = min_prop_mols_added
+        self.max_prop_mols_added = max_prop_mols_added
+        self.min_mols_added = self.total_mol_elabs * self.min_prop_mols_added
+        self.max_mols_added = self.total_mol_elabs * self.max_prop_mols_added
+        self.min_ints_reached = min_ints_reached
 
         # thresholds
         self.pocket_dist = pocket_dist
@@ -97,7 +107,8 @@ class Scorer():
         :param replaced_atom:
         :return:
         """
-        ligand_atoms = [atom for atom in self.ligand_data if atom != anchor_atom and atom != replaced_atom]
+        ligand_atoms = [atom for atom in self.ligand_data if atom != anchor_atom and atom != replaced_atom \
+                        and self.ligand.GetAtomWithIdx(atom).GetAtomicNum() != 1]
         ligand_coords = np.array([self.ligand_data[atom]['coords'] for atom in ligand_atoms])
         ligand_radii = [self.ligand_data[atom]['radii'] for atom in ligand_atoms]
         return ligand_atoms, ligand_coords, ligand_radii
@@ -211,7 +222,7 @@ class Scorer():
                             'interacting_conf_ids': interacting_conf_ids,
                             'interacting_mol_ids': interacting_mol_ids}
 
-        # write results
+        ####################################### write results ######################################
         self.results[(anchor_atom, replaced_atom)] = {'clashing_conf_ids': clash_conf_ids,
                                                       'clashing_mol_ids': clash_mol_ids}
         if self.check_for_ints:
@@ -261,10 +272,34 @@ class Scorer():
             print(f'Evaluating vector pair {i+1}/{len(self.vector_pairs)}: {vector_pair}')
             self.evaluate(vector_pair[0], vector_pair[1])
 
-    # def binary_scorer(self):
-    #     if not self.results:
-    #         self.evaluate_all_vectors()
-    #
-    #     for vector_pair in self.vector_pairs:
-    #         if len(self.results[vector_pair]['clashing_mol_ids'])
-    #         # check there are at least X elaborations that interact
+    def binary_scorer(self):
+        """
+
+        :return:
+        """
+        if not self.results:
+            self.evaluate_all_vectors()
+
+        self.scored = {}
+
+        for vector_pair in self.results:
+            # check at least X elaborations can be added (at least one conf not clashing)
+            if self.total_mol_elabs - len(self.results[vector_pair]['clashing_mol_ids']) >= self.min_mols_added \
+                and self.total_mol_elabs - len(self.results[vector_pair]['clashing_mol_ids']) <= self.max_mols_added:
+                clash_check = True
+            else:
+                clash_check = False
+            all_checks = [clash_check]
+            self.scored[vector_pair] = {'clash_check': clash_check}
+
+            # check at least X potential interactions can be reached
+            if self.check_for_ints:
+                if len(self.results[vector_pair]['interacting_prot_ids']) >= self.min_ints_reached:
+                    int_check = True
+                else:
+                    int_check = False
+                all_checks = [clash_check, int_check]
+                self.scored[vector_pair]['int_check'] = int_check
+
+            passing = len(all_checks) == sum(all_checks)
+            self.scored[vector_pair]['pass'] = passing

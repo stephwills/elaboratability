@@ -1,6 +1,7 @@
 import numpy as np
 
 ATOM_RADII = {
+    1: 1.20,
     6: 1.70,
     7: 1.55,
     8: 1.52,
@@ -24,3 +25,7 @@ HBOND_CUTOFF = 3
 POCKET_DIST = 8.0
 CHECK_LIG_CLASH = True
 CHECK_FOR_INTS = True
+TOTAL_MOLS = 302
+MIN_PROP_MOLS_ADDED = 0.1
+MAX_PROP_MOLS_ADDED = 0.9
+MIN_INTS_REACHED = 3
