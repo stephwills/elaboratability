@@ -293,7 +293,9 @@ def cluster_rotations(mol, n_confs, n_rotats=12, distThreshold=1.5, angleInterva
 
 def main():
     parser = ArgumentParser()
-    parser.add_argument('--decs_json', help='a json file containing a list of decorator SMILES')
+    parser.add_argument('--decs_dict_json', help='a json file containing a list of decorator SMILES')
+    parser.add_argument('--threshold_frequency', type=int)
+    parser.add_argument('--minimum_atoms', type=int, default=3)
     parser.add_argument('--n_cpus', type=int)
     parser.add_argument('--output_sdf')
     parser.add_argument('--output_json')
@@ -303,9 +305,13 @@ def main():
     args = parser.parse_args()
 
     # read in decorators and calculate number of rotatable bonds (to decide how many embeddings to create)
-    common_decs = load_json(args.decs_json)
+    decs_dict = load_json(args.decs_dict_json)
+    counts = list(decs_dict.values())
+    common_decs = [k for k, v in tqdm(decs_dict.items()) if v >= args.threshold_frequency]
+    common_decs = [smi for smi in common_decs if Chem.MolFromSmiles(smi).GetNumAtoms() >= args.minimum_atoms]
     mols = [Chem.MolFromSmiles(s) for s in common_decs]
     rotats = [rdMolDescriptors.CalcNumRotatableBonds(mol) for mol in mols]
+    print(len(mols), 'elaborations to be used to create conformers')
 
     # generate embedded decorators and align them to the same reference point
     results = Parallel(n_jobs=args.n_cpus, backend="multiprocessing")(

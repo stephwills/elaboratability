@@ -46,6 +46,7 @@ class ClusterCloud():
         info_data = load_json(self.info_file)
         self.conformers = [mol for mol in Chem.SDMolSupplier(self.conf_file)]
         self.mol_ids = info_data['molIds']
+        self.mol_smiles = info_data['smis']
         print(len(self.conformers), 'conformers loaded for', len(set(self.mol_ids)), 'molecules')
         self.conf_to_mol = {idx: mol_id for idx, mol_id in zip(range(len(self.conformers)), self.mol_ids)}
         self.mol_conf_counts = {mol_id: len(confs) for mol_id, confs in enumerate(info_data['confIds'])}

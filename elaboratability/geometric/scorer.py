@@ -12,7 +12,7 @@ class Scorer():
     def __init__(self, ligand, pdb_file, cloud, pocket_dist=config.POCKET_DIST, clash_cutoff=config.CLASH_CUTOFF,
                  hbond_cutoff=config.HBOND_CUTOFF, cloud_attach_coords=config.CLOUD_ATTACH_COORDS,
                  cloud_adj_coords=config.CLOUD_ADJ_COORDS, atom_dict=proConfig.ATOM_DICT, check_lig_clash=config.CHECK_LIG_CLASH,
-                 check_for_ints=config.CHECK_FOR_INTS, total_mol_elabs=config.TOTAL_MOLS, min_prop_mols_added=config.MIN_PROP_MOLS_ADDED,
+                 check_for_ints=config.CHECK_FOR_INTS, total_mol_elabs=config.TOTAL_MOLS, total_confs=config.TOTAL_CONFS, min_prop_mols_added=config.MIN_PROP_MOLS_ADDED,
                  max_prop_mols_added=config.MAX_PROP_MOLS_ADDED, min_ints_reached=config.MIN_INTS_REACHED):
         """
 
@@ -42,6 +42,7 @@ class Scorer():
         self.check_lig_clash = check_lig_clash
         self.check_for_ints = check_for_ints
         self.total_mol_elabs = total_mol_elabs
+        self.total_confs = total_confs
         self.min_prop_mols_added = min_prop_mols_added
         self.max_prop_mols_added = max_prop_mols_added
         self.min_mols_added = self.total_mol_elabs * self.min_prop_mols_added
@@ -98,6 +99,11 @@ class Scorer():
         """
         h_pairs = get_hydrogen_vector_pairs(self.ligand, False)
         non_h_pairs = get_non_hydrogen_vector_pairs(self.ligand)
+        self.vector_is_hyd = {}
+        for h_pair in h_pairs:
+            self.vector_is_hyd[tuple(h_pair)] = True
+        for non_h_pair in non_h_pairs:
+            self.vector_is_hyd[tuple(non_h_pair)] = False
         self.vector_pairs = h_pairs + non_h_pairs
 
     def get_ligand_data_for_eval(self, anchor_atom, replaced_atom):
@@ -284,8 +290,8 @@ class Scorer():
 
         for vector_pair in self.results:
             # check at least X elaborations can be added (at least one conf not clashing)
-            if self.total_mol_elabs - len(self.results[vector_pair]['clashing_mol_ids']) >= self.min_mols_added \
-                and self.total_mol_elabs - len(self.results[vector_pair]['clashing_mol_ids']) <= self.max_mols_added:
+            if (self.total_mol_elabs - len(self.results[vector_pair]['clashing_mol_ids'])) >= self.min_mols_added \
+                and (self.total_mol_elabs - len(self.results[vector_pair]['clashing_mol_ids'])) <= self.max_mols_added:
                 clash_check = True
             else:
                 clash_check = False

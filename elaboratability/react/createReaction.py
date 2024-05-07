@@ -165,6 +165,52 @@ def filter_single_rxn_with_aizynthfinder(reactant_smi, product_smi, aizynth_conf
     return filter.feasibility(rxn)
 
 
+def filter_multiple_rxns_for_vector_with_aizynthfinder(mol, anchor_atom, replace_atom, vector_is_hydrogen, decorators,
+                                            aizynth_config=config.AIZYNTH_CONFIG, model=config.FILTER_MODEL,
+                                            filter_cutoff=None):
+    """
+
+    :param mol:
+    :param anchor_atoms:
+    :param replace_atoms:
+    :param vectors_are_hydrogens:
+    :param decorators:
+    :param aizynth_config:
+    :param model:
+    :param filter_cutoff:
+    :return:
+    """
+    from aizynthfinder.context.config import Configuration
+    from aizynthfinder.context.policy import QuickKerasFilter
+    from aizynthfinder.chem.mol import TreeMolecule
+    from aizynthfinder.chem.reaction import SmilesBasedRetroReaction
+
+    conf = Configuration.from_file(aizynth_config)
+    filter = QuickKerasFilter(key="filter",
+                              config=conf,
+                              model=model
+                              )
+    if filter_cutoff:
+        print('Applying filter cutoff', filter_cutoff)
+        filter.filter_cutoff = filter_cutoff
+
+    filter_results = []
+    filter_feas = []
+
+    from tqdm import tqdm
+    for decorator in tqdm(decorators, total=len(decorators), position=0, leave=True):
+        reacts, prod = create_reaction_smiles(mol, decorator, anchor_atom, replace_atom, vector_is_hydrogen)
+        treemol = TreeMolecule(parent=None, smiles=prod)
+        rxn = SmilesBasedRetroReaction(mol=treemol,
+                                       reactants_str=reacts)
+        res, feas = filter.feasibility(rxn)
+        filter_results.append(res)
+        filter_feas.append(feas)
+
+    print(sum(filter_results), 'of', len(filter_results), 'pass filter')
+    return filter_results, filter_feas
+
+
 def filter_multiple_rxns_with_aizynthfinder(mol, anchor_atoms, replace_atoms, vectors_are_hydrogens, decorators,
                                             aizynth_config=config.AIZYNTH_CONFIG, model=config.FILTER_MODEL,
                                             filter_cutoff=None):
