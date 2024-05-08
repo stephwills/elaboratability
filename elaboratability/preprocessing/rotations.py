@@ -161,7 +161,6 @@ def embed_and_align_to_anchor(smi: str, n_rotat: int):
         n_conf = 200
     if n_rotat > 12:
         n_conf = 300
-
     emb, _ = embed(smi, n_conf)
     return emb, n_conf
 
@@ -250,7 +249,6 @@ def cluster_mol_conformers_wout_alignment(mol, n_cids, distThreshold=1.5):
         for j in range(i):
             # _ = rdMolAlign.AlignMol(mol,mol,prbCid=i,refCid=j)
             dists.append(rdMolAlign.CalcRMS(mol,mol,i,j))
-
     clusts = Butina.ClusterData(dists, len(cids), distThreshold, isDistData=True, reordering=True)
     return clusts
 
@@ -329,7 +327,7 @@ def main():
     # rotate each embedded conformer and cluster the conformations to get a representative set of rotated, clustered
     # embeddings
     new_mols = Parallel(n_jobs=args.n_cpus, backend="multiprocessing")(
-        delayed(cluster_rotations)(mol, n_conf, args.n_rotations, args.angle_interval) for mol, n_conf
+        delayed(cluster_rotations)(mol, n_conf, args.n_rotations, args.distThreshold, args.angle_interval) for mol, n_conf
         in tqdm(zip(embedded_mols, n_confs), total=len(embedded_mols), leave=True, position=0)
     )
 

@@ -1,5 +1,6 @@
 from rdkit import Chem
 from rdkit.Chem import rdFMCS, Mol, AllChem
+import elaboratability.utils.processConfig as proConfig
 
 
 def get_mappings_between_precursor_and_mol(mol: Mol, precursor: Mol):
@@ -223,6 +224,19 @@ def get_coords_from_pdb(pdb_file: str) -> dict:
     cmd.iterate_state(1, "all", "elems.append(elem)", space=coords)
     return coords
 
+def get_coords_from_pdb_mdanalysis(pdb_file: str):
+    """
+    Get coords using mdanalysis as numpy array
+
+    :param pdb_file:
+    :return:
+    """
+    import MDAnalysis
+    u = MDAnalysis.Universe(pdb_file)
+    receptor = u.select_atoms("protein")
+    coords = receptor.positions
+    return coords
+
 
 def get_ph4_atom_ids_from_rdkit(mol: Mol) -> list:
     """
@@ -259,7 +273,7 @@ def get_ph4_atom_ids_from_pdb(pdb_file: str) -> list:
     return interacting_ids
 
 
-def get_possible_interacting_atoms_and_min_dists(mol: Mol, pdb_file: str, hbond_cutoff: float = 3.0):
+def get_possible_interacting_atoms_and_min_dists(mol: Mol, pdb_file: str, hbond_cutoff: float = 3.0, use_pymol=proConfig.USE_PYMOL):
     """
 
     :param mol:
@@ -270,7 +284,10 @@ def get_possible_interacting_atoms_and_min_dists(mol: Mol, pdb_file: str, hbond_
     import numpy as np
     from scipy.spatial.distance import cdist
     mol_coords = get_all_coords_from_rdkit(mol)
-    prot_coords = get_coords_from_pdb(pdb_file)["coords"]
+    if use_pymol:
+        prot_coords = get_coords_from_pdb(pdb_file)["coords"]
+    else:
+        prot_coords = get_coords_from_pdb_mdanalysis(pdb_file)
 
     dists = cdist(mol_coords, prot_coords)
 

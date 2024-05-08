@@ -30,3 +30,4 @@ CLUSTERING_DIST_THRESHOLD = 0.5
 CLUSTERED_CONFORMER_FILE = '/home/swills/Oxford/elaboratability/notebooks/12_evalWithClusteredPoints/12out.sdf'
 CLUSTERED_CONFORMER_JSON = '/home/swills/Oxford/elaboratability/notebooks/12_evalWithClusteredPoints/12out.json'
 PROCESSED_DATA_FILE = '/home/swills/Oxford/elaboratability/data/processed_cloud_data.pkl'
+USE_PYMOL = False

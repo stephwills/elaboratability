@@ -8,7 +8,8 @@ from argparse import ArgumentParser
 import elaboratability.utils.processConfig as config
 from aizynthfinder.aizynthfinder import AiZynthFinder
 from elaboratability.utils.processUtils import (
-    constrained_embed_of_precursor, get_mappings_between_precursor_and_mol,
+    check_elaboration_is_useful, constrained_embed_of_precursor,
+    get_mappings_between_precursor_and_mol,
     get_possible_interacting_atoms_and_min_dists, get_vector_atoms)
 from elaboratability.utils.utils import add_properties_from_dict
 from joblib import Parallel, delayed
@@ -78,7 +79,7 @@ def place_precursor(mol: Mol, precursor_smi: str, int_idxs: list, atom_dists: di
         # check if the elaboration from vector makes an interaction with the protein and
         # check if an atom in the elaboration is closer than an atom in the mcs
         for vector, vector_mol, neighbours in zip(vectors, vectors_molidx, vector_neighbours):
-            from elaboratability.utils.processUtils import check_elaboration_is_useful
+
             check = check_elaboration_is_useful(mol, vector_mol, map, int_idxs, atom_dists)
             if check:
                 print(vector, 'vector passes')
@@ -120,8 +121,11 @@ def retrieve_precursors_for_mol(pdb_file: str, output_file: str, sdf_file = None
         mol = Chem.SDMolSupplier(sdf_file)[0]
     smiles = Chem.MolToSmiles(mol)
 
+    # retrieve possible precursors predicted by aizynth
     precursor_smiles = get_reactants_using_aizynth(smiles)
 
+    # for each ligand atom, get the closest distance to a protein atom AND
+    # get the ligand atom ids that are within distance of an hbonder in protein
     interacting_ids, closest_dists = get_possible_interacting_atoms_and_min_dists(mol, pdb_file)
 
     all_precursors = []

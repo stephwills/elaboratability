@@ -38,10 +38,8 @@ class ClusterCloud():
         """
         self.conf_file = conf_file
         self.info_file = info_file
-        if reprocess_data:
-            self.data_file = None
-        else:
-            self.data_file = data_file
+        self.data_file = data_file
+        self.reprocess_data = reprocess_data
 
         info_data = load_json(self.info_file)
         self.conformers = [mol for mol in Chem.SDMolSupplier(self.conf_file)]
@@ -51,7 +49,7 @@ class ClusterCloud():
         self.conf_to_mol = {idx: mol_id for idx, mol_id in zip(range(len(self.conformers)), self.mol_ids)}
         self.mol_conf_counts = {mol_id: len(confs) for mol_id, confs in enumerate(info_data['confIds'])}
 
-    def generate_cloud_data(self, new_data_file=None):
+    def generate_cloud_data(self):
         """
 
         :param new_data_file:
@@ -60,10 +58,9 @@ class ClusterCloud():
         print('Processing conformers to create cloud')
         self.data = get_all_coordinates(self.conformers, self.mol_ids)
 
-        if new_data_file:
-            print('Writing to new data file', new_data_file)
-            with open(new_data_file, 'wb') as handle:
-                pickle.dump(self.data, handle)
+        print('Writing to new data file', self.data_file)
+        with open(self.data_file, 'wb') as handle:
+            pickle.dump(self.data, handle)
 
     @staticmethod
     def _read_data_from_pickle(data_file):
@@ -77,7 +74,7 @@ class ClusterCloud():
         return data
 
     def process_cloud(self):
-        if not self.data_file:
+        if self.reprocess_data:
             self.generate_cloud_data()
         else:
             print('Reading data from', self.data_file)
