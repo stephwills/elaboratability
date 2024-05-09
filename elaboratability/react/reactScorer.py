@@ -15,19 +15,31 @@ class ReactionScorer(Scorer):
                  hbond_cutoff=config.HBOND_CUTOFF, cloud_attach_coords=config.CLOUD_ATTACH_COORDS,
                  cloud_adj_coords=config.CLOUD_ADJ_COORDS, atom_dict=proConfig.ATOM_DICT, check_lig_clash=config.CHECK_LIG_CLASH,
                  check_for_ints=config.CHECK_FOR_INTS, total_mol_elabs=config.TOTAL_MOLS, total_confs=config.TOTAL_CONFS, min_prop_mols_added=config.MIN_PROP_MOLS_ADDED,
-                 max_prop_mols_added=config.MAX_PROP_MOLS_ADDED, min_ints_reached=config.MIN_INTS_REACHED, aizynth_config=reactConfig.AIZYNTH_CONFIG, filter_model=reactConfig.FILTER_MODEL,
-                 filter_cutoff=reactConfig.FILTER_CUTOFF, check_all_non_clashing=reactConfig.CHECK_ALL_NON_CLASHING):
+                 max_prop_mols_added=config.MAX_PROP_MOLS_ADDED, min_ints_reached=config.MIN_INTS_REACHED, filter_cutoff=reactConfig.FILTER_CUTOFF, check_all_non_clashing=reactConfig.CHECK_ALL_NON_CLASHING):
         """
 
-        :param aizynth_config:
-        :param filter_model:
+        :param ligand:
+        :param pdb_file:
+        :param cloud:
+        :param pocket_dist:
+        :param clash_cutoff:
+        :param hbond_cutoff:
+        :param cloud_attach_coords:
+        :param cloud_adj_coords:
+        :param atom_dict:
+        :param check_lig_clash:
+        :param check_for_ints:
+        :param total_mol_elabs:
+        :param total_confs:
+        :param min_prop_mols_added:
+        :param max_prop_mols_added:
+        :param min_ints_reached:
         :param filter_cutoff:
+        :param check_all_non_clashing:
         """
         Scorer.__init__(self, ligand, pdb_file, cloud, pocket_dist, clash_cutoff, hbond_cutoff, cloud_attach_coords,
                         cloud_adj_coords, atom_dict, check_lig_clash, check_for_ints, total_mol_elabs, total_confs, min_prop_mols_added,
                         max_prop_mols_added, min_ints_reached)
-        self.aizynth_config = aizynth_config
-        self.filter_model = filter_model
         self.filter_cutoff = filter_cutoff
         self.check_all_non_clashing = check_all_non_clashing
 
@@ -112,8 +124,7 @@ class ReactionScorer(Scorer):
 
             vector_is_hyd = self.vector_is_hyd[(anchor_atom, replaced_atom)]
             filter_res, filter_feas = filter_multiple_rxns_for_vector_with_aizynthfinder(
-                self.ligand, anchor_atom, replaced_atom, vector_is_hyd, uniq_smis,
-                self.aizynth_config, self.filter_model, self.filter_cutoff)
+                self.ligand, anchor_atom, replaced_atom, vector_is_hyd, uniq_smis, self.filter_cutoff)
 
             res_list = [filter_res[idx] for idx in interacting_mol_smi_idxs]
             reacting_conf_ids = [conf_id for conf_id, res in zip(interacting_conf_ids, res_list) if res]

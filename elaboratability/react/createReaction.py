@@ -1,7 +1,10 @@
 
-from rdkit import Chem
 import elaboratability.utils.reactConfig as config
-from elaboratability.utils.utils import set_og_idxs, get_new_idx
+from aizynthfinder.chem.mol import TreeMolecule
+from aizynthfinder.chem.reaction import SmilesBasedRetroReaction
+from elaboratability.utils.utils import get_new_idx, set_og_idxs
+from rdkit import Chem
+from tqdm import tqdm
 
 
 def replace_hydrogen_with_decorator(mol, anchor_atom, replace_atom, dec_smi):
@@ -55,7 +58,6 @@ def replace_heavy_atom_with_decorator(mol, anchor_atom, replaced_atom, dec_smi):
     new_mol = replace_hydrogen_with_decorator(intermed_mol, new_anchor_idx, new_replace_idx, dec_smi)
     return new_mol
 
-
 def switch_replaced_atom_with_hydrogen(mol, anchor_atom, replaced_atom):
     """
 
@@ -76,7 +78,12 @@ def switch_replaced_atom_with_hydrogen(mol, anchor_atom, replaced_atom):
     set_og_idxs(h_2, 'h2_og_idx')
 
     if bond_type == 1.0:
-        return mol
+        neighs = replaced_at.GetNeighbors()
+        neigh_idxs = [at.GetIdx() for at in neighs if at.GetIdx() != anchor_atom]
+        neigh_idxs.sort(reverse=True)
+        edit = Chem.EditableMol(mol)
+        for neigh_idx in neigh_idxs:
+            edit.RemoveAtom(neigh_idx)
 
     if bond_type == 2.0:
         bond.SetBondType(Chem.BondType.SINGLE)
@@ -98,7 +105,11 @@ def switch_replaced_atom_with_hydrogen(mol, anchor_atom, replaced_atom):
         edit.AddBond(new_anchor_idx, new_h2_idx, order=Chem.BondType.SINGLE)
 
     back = edit.GetMol()
-    new_replace_idx = get_new_idx(comb, replaced_atom, 'mol_og_idx')
+    if bond_type == 1.0:
+        new_anchor_idx = get_new_idx(back, anchor_atom, 'mol_og_idx')
+        # new_replace_idx = get_new_idx(back, replaced_atom, 'mol_og_idx')
+    # else:  # TODO: check if this should be comb???
+    new_replace_idx = get_new_idx(back, replaced_atom, 'mol_og_idx')
     return back, new_anchor_idx, new_replace_idx
 
 
@@ -140,70 +151,48 @@ def create_reaction_smiles(mol, dec_smi, anchor_atom, replaced_atom, is_hydrogen
     return reactants, product_smi
 
 
-def filter_single_rxn_with_aizynthfinder(reactant_smi, product_smi, aizynth_config=config.AIZYNTH_CONFIG, model=config.FILTER_MODEL):
+def filter_single_rxn_with_aizynthfinder(reactant_smi, product_smi):
     """
 
     :param reactant_smi:
     :param product_smi:
-    :param aizynth_config:
-    :param model:
     :return:
     """
-    from aizynthfinder.context.config import Configuration
-    from aizynthfinder.context.policy import QuickKerasFilter
-    from aizynthfinder.chem.mol import TreeMolecule
-    from aizynthfinder.chem.reaction import SmilesBasedRetroReaction
-
-    aizynth_config = Configuration.from_file('')
-    filter = QuickKerasFilter(key="filter",
-                              config=aizynth_config,
-                              model=model
-                              )
     treemol = TreeMolecule(parent=None, smiles=product_smi)
     rxn = SmilesBasedRetroReaction(mol=treemol,
                                    reactants_str=reactant_smi)
-    return filter.feasibility(rxn)
+    return config.filter.feasibility(rxn)
 
 
 def filter_multiple_rxns_for_vector_with_aizynthfinder(mol, anchor_atom, replace_atom, vector_is_hydrogen, decorators,
-                                            aizynth_config=config.AIZYNTH_CONFIG, model=config.FILTER_MODEL,
-                                            filter_cutoff=None):
+                                            filter_cutoff=None, verbose=False):
     """
 
     :param mol:
-    :param anchor_atoms:
-    :param replace_atoms:
-    :param vectors_are_hydrogens:
+    :param anchor_atom:
+    :param replace_atom:
+    :param vector_is_hydrogen:
     :param decorators:
-    :param aizynth_config:
-    :param model:
     :param filter_cutoff:
+    :param verbose:
     :return:
     """
-    from aizynthfinder.context.config import Configuration
-    from aizynthfinder.context.policy import QuickKerasFilter
-    from aizynthfinder.chem.mol import TreeMolecule
-    from aizynthfinder.chem.reaction import SmilesBasedRetroReaction
-
-    conf = Configuration.from_file(aizynth_config)
-    filter = QuickKerasFilter(key="filter",
-                              config=conf,
-                              model=model
-                              )
     if filter_cutoff:
-        print('Applying filter cutoff', filter_cutoff)
-        filter.filter_cutoff = filter_cutoff
+        if verbose:
+            print('Applying filter cutoff', filter_cutoff)
+        config.filter.filter_cutoff = filter_cutoff
 
     filter_results = []
     filter_feas = []
 
-    from tqdm import tqdm
+    if verbose:
+        print(len(decorators), 'decorators to evaluate')
     for decorator in tqdm(decorators, total=len(decorators), position=0, leave=True):
         reacts, prod = create_reaction_smiles(mol, decorator, anchor_atom, replace_atom, vector_is_hydrogen)
         treemol = TreeMolecule(parent=None, smiles=prod)
         rxn = SmilesBasedRetroReaction(mol=treemol,
                                        reactants_str=reacts)
-        res, feas = filter.feasibility(rxn)
+        res, feas = config.filter.feasibility(rxn)
         filter_results.append(res)
         filter_feas.append(feas)
 
@@ -212,7 +201,6 @@ def filter_multiple_rxns_for_vector_with_aizynthfinder(mol, anchor_atom, replace
 
 
 def filter_multiple_rxns_with_aizynthfinder(mol, anchor_atoms, replace_atoms, vectors_are_hydrogens, decorators,
-                                            aizynth_config=config.AIZYNTH_CONFIG, model=config.FILTER_MODEL,
                                             filter_cutoff=None):
     """
 
@@ -221,24 +209,12 @@ def filter_multiple_rxns_with_aizynthfinder(mol, anchor_atoms, replace_atoms, ve
     :param replace_atoms:
     :param vectors_are_hydrogens:
     :param decorators:
-    :param aizynth_config:
-    :param model:
     :param filter_cutoff:
     :return:
     """
-    from aizynthfinder.context.config import Configuration
-    from aizynthfinder.context.policy import QuickKerasFilter
-    from aizynthfinder.chem.mol import TreeMolecule
-    from aizynthfinder.chem.reaction import SmilesBasedRetroReaction
-
-    conf = Configuration.from_file(aizynth_config)
-    filter = QuickKerasFilter(key="filter",
-                              config=conf,
-                              model=model
-                              )
     if filter_cutoff:
         print('Applying filter cutoff', filter_cutoff)
-        filter.filter_cutoff = filter_cutoff
+        config.filter.filter_cutoff = filter_cutoff
 
     filter_results = []
     filter_feas = []
@@ -249,7 +225,7 @@ def filter_multiple_rxns_with_aizynthfinder(mol, anchor_atoms, replace_atoms, ve
         treemol = TreeMolecule(parent=None, smiles=prod)
         rxn = SmilesBasedRetroReaction(mol=treemol,
                                        reactants_str=reacts)
-        res, feas = filter.feasibility(rxn)
+        res, feas = config.filter.feasibility(rxn)
         filter_results.append(res)
         filter_feas.append(feas)
 
