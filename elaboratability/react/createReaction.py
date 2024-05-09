@@ -177,6 +177,7 @@ def filter_multiple_rxns_for_vector_with_aizynthfinder(mol, anchor_atom, replace
     :param verbose:
     :return:
     """
+    disable = not verbose
     if filter_cutoff:
         if verbose:
             print('Applying filter cutoff', filter_cutoff)
@@ -187,7 +188,7 @@ def filter_multiple_rxns_for_vector_with_aizynthfinder(mol, anchor_atom, replace
 
     if verbose:
         print(len(decorators), 'decorators to evaluate')
-    for decorator in tqdm(decorators, total=len(decorators), position=0, leave=True):
+    for decorator in tqdm(decorators, total=len(decorators), position=0, leave=True, disable=disable):
         reacts, prod = create_reaction_smiles(mol, decorator, anchor_atom, replace_atom, vector_is_hydrogen)
         treemol = TreeMolecule(parent=None, smiles=prod)
         rxn = SmilesBasedRetroReaction(mol=treemol,
@@ -196,7 +197,8 @@ def filter_multiple_rxns_for_vector_with_aizynthfinder(mol, anchor_atom, replace
         filter_results.append(res)
         filter_feas.append(feas)
 
-    print(sum(filter_results), 'of', len(filter_results), 'pass filter')
+    if verbose:
+        print(sum(filter_results), 'of', len(filter_results), 'pass filter')
     return filter_results, filter_feas
 
 

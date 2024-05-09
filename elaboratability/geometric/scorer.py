@@ -13,7 +13,7 @@ class Scorer():
                  hbond_cutoff=config.HBOND_CUTOFF, cloud_attach_coords=config.CLOUD_ATTACH_COORDS,
                  cloud_adj_coords=config.CLOUD_ADJ_COORDS, atom_dict=proConfig.ATOM_DICT, check_lig_clash=config.CHECK_LIG_CLASH,
                  check_for_ints=config.CHECK_FOR_INTS, total_mol_elabs=config.TOTAL_MOLS, total_confs=config.TOTAL_CONFS, min_prop_mols_added=config.MIN_PROP_MOLS_ADDED,
-                 max_prop_mols_added=config.MAX_PROP_MOLS_ADDED, min_ints_reached=config.MIN_INTS_REACHED):
+                 max_prop_mols_added=config.MAX_PROP_MOLS_ADDED, min_ints_reached=config.MIN_INTS_REACHED, verbose=False):
         """
 
         :param ligand:
@@ -28,8 +28,11 @@ class Scorer():
         :param check_lig_clash:
         :param check_for_ints:
         :param total_mol_elabs:
-        :param min_mols_added:
+        :param total_confs:
+        :param min_prop_mols_added:
+        :param max_prop_mols_added:
         :param min_ints_reached:
+        :param verbose:
         """
         self.ligand = Chem.AddHs(ligand, addCoords=True)
         self.pdb_file = pdb_file
@@ -48,6 +51,7 @@ class Scorer():
         self.min_mols_added = self.total_mol_elabs * self.min_prop_mols_added
         self.max_mols_added = self.total_mol_elabs * self.max_prop_mols_added
         self.min_ints_reached = min_ints_reached
+        self.verbose = verbose
 
         # thresholds
         self.pocket_dist = pocket_dist
@@ -275,7 +279,8 @@ class Scorer():
         if not self.vector_pairs:
             self.get_vectors()
         for i, vector_pair in enumerate(self.vector_pairs):
-            print(f'Evaluating vector pair {i+1}/{len(self.vector_pairs)}: {vector_pair}')
+            if self.verbose:
+                print(f'Evaluating vector pair {i+1}/{len(self.vector_pairs)}: {vector_pair}')
             self.evaluate(vector_pair[0], vector_pair[1])
 
     def binary_scorer(self):

@@ -15,7 +15,8 @@ class ReactionScorer(Scorer):
                  hbond_cutoff=config.HBOND_CUTOFF, cloud_attach_coords=config.CLOUD_ATTACH_COORDS,
                  cloud_adj_coords=config.CLOUD_ADJ_COORDS, atom_dict=proConfig.ATOM_DICT, check_lig_clash=config.CHECK_LIG_CLASH,
                  check_for_ints=config.CHECK_FOR_INTS, total_mol_elabs=config.TOTAL_MOLS, total_confs=config.TOTAL_CONFS, min_prop_mols_added=config.MIN_PROP_MOLS_ADDED,
-                 max_prop_mols_added=config.MAX_PROP_MOLS_ADDED, min_ints_reached=config.MIN_INTS_REACHED, filter_cutoff=reactConfig.FILTER_CUTOFF, check_all_non_clashing=reactConfig.CHECK_ALL_NON_CLASHING):
+                 max_prop_mols_added=config.MAX_PROP_MOLS_ADDED, min_ints_reached=config.MIN_INTS_REACHED, verbose=False,
+                 filter_cutoff=reactConfig.FILTER_CUTOFF, check_all_non_clashing=reactConfig.CHECK_ALL_NON_CLASHING):
         """
 
         :param ligand:
@@ -34,6 +35,7 @@ class ReactionScorer(Scorer):
         :param min_prop_mols_added:
         :param max_prop_mols_added:
         :param min_ints_reached:
+        :param verbose:
         :param filter_cutoff:
         :param check_all_non_clashing:
         """
@@ -124,7 +126,7 @@ class ReactionScorer(Scorer):
 
             vector_is_hyd = self.vector_is_hyd[(anchor_atom, replaced_atom)]
             filter_res, filter_feas = filter_multiple_rxns_for_vector_with_aizynthfinder(
-                self.ligand, anchor_atom, replaced_atom, vector_is_hyd, uniq_smis, self.filter_cutoff)
+                self.ligand, anchor_atom, replaced_atom, vector_is_hyd, uniq_smis, self.filter_cutoff, verbose=self.verbose)
 
             res_list = [filter_res[idx] for idx in interacting_mol_smi_idxs]
             reacting_conf_ids = [conf_id for conf_id, res in zip(interacting_conf_ids, res_list) if res]
