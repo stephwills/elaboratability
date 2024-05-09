@@ -151,7 +151,7 @@ def get_all_coordinates(mols: list, mol_ids: list, elements=config.ELEMENT_NAMES
     """
     # get hbond data for all the mols first
     print('Extracting hbonder data')
-    hbond_data = [extract_h_bonders(mol) for mol in mols]
+    hbond_data = [extract_h_bonders(mol) for mol in tqdm(mols)]
     print('Hbonds info retrieved')
     atom_nums = [atom_dict[elem]['atomic_number'] for elem in elements]
 
