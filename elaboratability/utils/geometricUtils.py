@@ -233,3 +233,56 @@ def align_cloud_to_vector(h_coords, neigh_coords, cloud_coords, cloud_attach_coo
     rotat_mat = get_rotation_matrix_for_mol(h_coords, neigh_coords, cloud_attach_coords)
     all_coords = [get_rotated_coord(cloud_adj_coords, coords, rotat_mat) for coords in all_coords]
     return all_coords
+
+
+def rotate_h_coords(h_coords, anchor_coord, angle, n_rotations):
+    """
+
+    :param h_coords:
+    :param anchor_coord:
+    :param angle:
+    :param n_rotations:
+    :return:
+    """
+    avg_coord = np.average(h_coords, axis=0)
+    axis_vector = avg_coord - anchor_coord
+    axis = axis_vector / np.linalg.norm(axis_vector)
+
+    all_new_h_coords = []
+
+    def rotate_coords(h_coords, anchor_coord, angle):
+        """
+
+        :param h_coords:
+        :param anchor_coord:
+        :param angle:
+        :return:
+        """
+        new_h_coords = []
+        for h_coord in h_coords:
+            h_vector = h_coord - anchor_coord
+
+            # Compute the rotation matrix
+            cos_theta = np.cos(angle)
+            sin_theta = np.sin(angle)
+            cross_product_matrix = np.array([
+                [0, -axis[2], axis[1]],
+                [axis[2], 0, -axis[0]],
+                [-axis[1], axis[0], 0]
+            ])
+            rotation_matrix = np.eye(3) * cos_theta + sin_theta * cross_product_matrix \
+                              + (1 - cos_theta) * np.outer(axis, axis)
+
+            # Apply the rotation to the vector
+            rotated_vector = np.dot(rotation_matrix, h_vector)
+            new_h_coord = anchor_coord + rotated_vector
+            new_h_coords.append(new_h_coord)
+        return new_h_coords
+
+    starting_coords = h_coords
+    for rotation in range(n_rotations):
+        new_coords = np.array(rotate_coords(starting_coords, anchor_coord, angle))
+        all_new_h_coords.append(new_coords)
+        starting_coords = new_coords
+
+    return all_new_h_coords

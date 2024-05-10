@@ -4,7 +4,7 @@ http://pymolwiki.org/index.php/FindSurfaceResidues
 
 from __future__ import print_function
 from pymol import cmd
-
+import elaboratability.utils.processConfig as config
 
 def findSurfaceAtoms(pdb_file, selection="all", cutoff=2.5, quiet=1):
     """
@@ -23,7 +23,7 @@ def findSurfaceAtoms(pdb_file, selection="all", cutoff=2.5, quiet=1):
     cmd.create(tmpObj, "(" + selection + ") and polymer", zoom=0)
     cmd.set("dot_solvent", 1, tmpObj)
     cmd.get_area(selection=tmpObj, load_b=1)
-    # threshold on what one considers an "exposed" atom (in A**2):
+    # threshold on what one considers an S"exposed" atom (in A**2):
     cmd.remove(tmpObj + " and b < " + str(cutoff))
     selName = cmd.get_unused_name("exposed_atm_")
     cmd.select(selName, "(" + selection + ") in " + tmpObj)
@@ -61,7 +61,8 @@ def findAromaticAtoms(pdb_file):
     return aromatics
 
 
-def save_close_protein_atoms(pdb_file, ligand_coords, dist_threshold=8, output_fname=None, save_pocket_file=None):
+def save_close_protein_atoms(pdb_file, ligand_coords, dist_threshold=8, output_fname=None, save_pocket_file=None,
+                             element_names=config.ELEMENT_NAMES):
     """
     Get the coordinates of 'pocket atoms' (within a certain distance) to limit the number of distances that have to
     be calculated later. Optionally save as a standalone pdb file.
@@ -83,10 +84,10 @@ def save_close_protein_atoms(pdb_file, ligand_coords, dist_threshold=8, output_f
     cmd.iterate_state(1, "all", "IDs.append(ID)", space=coords)
     cmd.iterate_state(1, "all", "elems.append(elem)", space=coords)
 
-    # select those protein atoms that are within a certain distance and angle of the exit vector
+    # select those protein atoms that are within a certain distance of molecule
     pocket_coords = {"coords": [], "IDs": [], "elems": []}
     for prot_coord, id, elem in zip(coords["coords"], coords["IDs"], coords["elems"]):
-        if elem != 'H':
+        if elem in element_names:
             if id not in pocket_coords["IDs"]:
                 for ligand_coord in ligand_coords:
                     if id not in pocket_coords["IDs"]:
