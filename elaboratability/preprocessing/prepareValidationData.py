@@ -4,6 +4,7 @@ Process docking data into data that can be used to train the elaboratability mod
 
 import os
 from argparse import ArgumentParser
+import time
 
 import elaboratability.utils.processConfig as config
 from aizynthfinder.aizynthfinder import AiZynthFinder
@@ -11,10 +12,11 @@ from elaboratability.utils.processUtils import (
     check_elaboration_is_useful, constrained_embed_of_precursor,
     get_mappings_between_precursor_and_mol,
     get_possible_interacting_atoms_and_min_dists, get_vector_atoms)
-from elaboratability.utils.utils import add_properties_from_dict
+from elaboratability.utils.utils import add_properties_from_dict, dump_json
 from joblib import Parallel, delayed
 from rdkit import Chem
 from rdkit.Chem import Mol
+from tqdm import tqdm
 
 
 def get_reactants_using_aizynth(smi: str, aizynth_config_file=config.AIZYNTH_CONFIG_FILE, stock=config.STOCK,
@@ -64,7 +66,7 @@ def place_precursor(mol: Mol, precursor_smi: str, int_idxs: list, atom_dists: di
 
     # check there is a sensible number of shared atoms between precursor and molecule
     if mcs.GetNumAtoms() < min_mcs_atoms or precursor.GetNumAtoms() - mcs.GetNumAtoms() > max_extra_precursor_atoms:
-        return False
+        return False, False
 
     placed_precursors = []
     property_dicts = []
@@ -133,14 +135,16 @@ def retrieve_precursors_for_mol(pdb_file: str, output_file: str, sdf_file = None
 
     for precursor_smi in precursor_smiles:
         placed_precursors, properties = place_precursor(mol, precursor_smi, interacting_ids, closest_dists)
-        all_precursors.extend(placed_precursors)
-        all_properties.extend(properties)
+        if placed_precursors:
+            all_precursors.extend(placed_precursors)
+            all_properties.extend(properties)
 
-    w = Chem.SDWriter(output_file)
-    for precursor, properties in zip(all_precursors, all_properties):
-        add_properties_from_dict(precursor, properties)
-        w.write(precursor)
-    w.close()
+    if len(all_precursors) > 0:
+        w = Chem.SDWriter(output_file)
+        for precursor, properties in zip(all_precursors, all_properties):
+            add_properties_from_dict(precursor, properties)
+            w.write(precursor)
+        w.close()
 
 
 def parallel_precursor_enumeration(sdf_files: list, pdb_files: list, output_files: list, n_cpus: int):
@@ -152,9 +156,9 @@ def parallel_precursor_enumeration(sdf_files: list, pdb_files: list, output_file
     :param n_cpus:
     :return:
     """
-    from tqdm import tqdm
+    #pdb_file: str, output_file: str, sdf_file = None, mol = None
     Parallel(n_jobs=n_cpus, backend="multiprocessing")(
-        delayed(retrieve_precursors_for_mol)(sdf_file, pdb_file, output_file)
+        delayed(retrieve_precursors_for_mol)(pdb_file, output_file, sdf_file)
         for sdf_file, pdb_file, output_file in tqdm(zip(sdf_files, pdb_files, output_files), position=0, leave=True, total=len(sdf_files))
     )
 
@@ -164,6 +168,7 @@ def main():
     parser.add_argument('--txt_file', help='each line is comma delimited ligand_name, sdf file and pdb file')
     parser.add_argument('--output_dir')
     parser.add_argument('--n_cpus', type=int)
+    parser.add_argument('--parallel', action='store_true')
     args = parser.parse_args()
 
     with open(args.txt_file, "r+") as f:
@@ -173,8 +178,21 @@ def main():
     pdb_files = [file.split(',')[2] for file in files]
     output_files = [os.path.join(args.output_dir, f"{ligand}_precursors.sdf") for ligand in ligands]
 
+    start = time.time()
+
     print(len(ligands), 'mols read')
-    parallel_precursor_enumeration(sdf_files, pdb_files, output_files, args.n_cpus)
+    if args.parallel:
+        parallel_precursor_enumeration(sdf_files, pdb_files, output_files, args.n_cpus)
+
+    else:
+        for sdf_file, pdb_file, output_file in tqdm(zip(sdf_files, pdb_files, output_files), position=0, leave=True, total=len(sdf_files)):
+            retrieve_precursors_for_mol(pdb_file, output_file, sdf_file)
+
+    end = time.time()
+    time_taken = round(end-start, 2)
+    d = {'n_mols': len(ligands),
+         'time': time_taken}
+    dump_json(d, os.path.join(args.output_dir, 'time_taken.json'))
 
 
 if __name__ == "__main__":
