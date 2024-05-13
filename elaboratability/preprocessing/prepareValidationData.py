@@ -60,13 +60,17 @@ def place_precursor(mol: Mol, precursor_smi: str, int_idxs: list, atom_dists: di
     :return:
     """
     precursor = Chem.MolFromSmiles(precursor_smi)
+    if not precursor:
+        return None, None
     if verbose: print('Attempting placement for precursor:', precursor_smi)
     # get possible atom mappings between the precursor and the molecule
     maps, mcs = get_mappings_between_precursor_and_mol(mol, precursor)
+    if len(maps) == 0:
+        return None, None
 
     # check there is a sensible number of shared atoms between precursor and molecule
     if mcs.GetNumAtoms() < min_mcs_atoms or precursor.GetNumAtoms() - mcs.GetNumAtoms() > max_extra_precursor_atoms:
-        return False, False
+        return None, None
 
     placed_precursors = []
     property_dicts = []
@@ -84,11 +88,11 @@ def place_precursor(mol: Mol, precursor_smi: str, int_idxs: list, atom_dists: di
 
             check = check_elaboration_is_useful(mol, vector_mol, map, int_idxs, atom_dists)
             if check:
-                print(vector, 'vector passes')
+                # print(vector, 'vector passes')
                 passing_vectors.append(vector)
                 passing_vector_neighbours.append(neighbours)
-            else:
-                print(vector, 'vector fails')
+            # else:
+                # print(vector, 'vector fails')
 
         placed_precursor = constrained_embed_of_precursor(mol, precursor, mcs, map)
         if placed_precursor and len(passing_vectors) > 0:
@@ -121,10 +125,15 @@ def retrieve_precursors_for_mol(pdb_file: str, output_file: str, sdf_file = None
     """
     if sdf_file:
         mol = Chem.SDMolSupplier(sdf_file)[0]
+    if not mol:
+        return None
     smiles = Chem.MolToSmiles(mol)
 
     # retrieve possible precursors predicted by aizynth
     precursor_smiles = get_reactants_using_aizynth(smiles)
+
+    if len(precursor_smiles) == 0:
+        return None
 
     # for each ligand atom, get the closest distance to a protein atom AND
     # get the ligand atom ids that are within distance of an hbonder in protein
@@ -136,8 +145,9 @@ def retrieve_precursors_for_mol(pdb_file: str, output_file: str, sdf_file = None
     for precursor_smi in precursor_smiles:
         placed_precursors, properties = place_precursor(mol, precursor_smi, interacting_ids, closest_dists)
         if placed_precursors:
-            all_precursors.extend(placed_precursors)
-            all_properties.extend(properties)
+            if len(placed_precursors) > 0:
+                all_precursors.extend(placed_precursors)
+                all_properties.extend(properties)
 
     if len(all_precursors) > 0:
         w = Chem.SDWriter(output_file)

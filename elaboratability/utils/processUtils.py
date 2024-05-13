@@ -185,6 +185,8 @@ def check_elaboration_is_useful(mol: Mol, vector: int, map: dict, int_idxs: list
         return list(elab_idxs)
 
     elab_idxs = get_elab_idxs(mol, vector, mol_mcs_matches)
+    if len(elab_idxs) == 0:
+        return False
 
     if len(get_intersect(elab_idxs, int_idxs)) > 0:
         return True
