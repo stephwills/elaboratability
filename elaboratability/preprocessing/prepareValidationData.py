@@ -123,6 +123,9 @@ def retrieve_precursors_for_mol(pdb_file: str, output_file: str, sdf_file = None
     :param output_file:
     :return:
     """
+    if not os.path.exists(pdb_file) or not os.path.exists(sdf_file):
+        print('Input file does not exist')
+        return None
     if sdf_file:
         mol = Chem.SDMolSupplier(sdf_file)[0]
     if not mol:
