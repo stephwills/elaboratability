@@ -123,41 +123,48 @@ def retrieve_precursors_for_mol(pdb_file: str, output_file: str, sdf_file = None
     :param output_file:
     :return:
     """
+    if os.path.exists(output_file):
+        return None
     if not os.path.exists(pdb_file) or not os.path.exists(sdf_file):
         print('Input file does not exist')
         return None
-    if sdf_file:
-        mol = Chem.SDMolSupplier(sdf_file)[0]
-    if not mol:
-        return None
-    smiles = Chem.MolToSmiles(mol)
 
-    # retrieve possible precursors predicted by aizynth
-    precursor_smiles = get_reactants_using_aizynth(smiles)
+    try:
+        if sdf_file:
+            mol = Chem.SDMolSupplier(sdf_file)[0]
+        if not mol:
+            return None
+        smiles = Chem.MolToSmiles(mol)
 
-    if len(precursor_smiles) == 0:
-        return None
+        # retrieve possible precursors predicted by aizynth
+        precursor_smiles = get_reactants_using_aizynth(smiles)
 
-    # for each ligand atom, get the closest distance to a protein atom AND
-    # get the ligand atom ids that are within distance of an hbonder in protein
-    interacting_ids, closest_dists = get_possible_interacting_atoms_and_min_dists(mol, pdb_file)
+        if len(precursor_smiles) == 0:
+            return None
 
-    all_precursors = []
-    all_properties = []
+        # for each ligand atom, get the closest distance to a protein atom AND
+        # get the ligand atom ids that are within distance of an hbonder in protein
+        interacting_ids, closest_dists = get_possible_interacting_atoms_and_min_dists(mol, pdb_file)
 
-    for precursor_smi in precursor_smiles:
-        placed_precursors, properties = place_precursor(mol, precursor_smi, interacting_ids, closest_dists)
-        if placed_precursors:
-            if len(placed_precursors) > 0:
-                all_precursors.extend(placed_precursors)
-                all_properties.extend(properties)
+        all_precursors = []
+        all_properties = []
 
-    if len(all_precursors) > 0:
-        w = Chem.SDWriter(output_file)
-        for precursor, properties in zip(all_precursors, all_properties):
-            add_properties_from_dict(precursor, properties)
-            w.write(precursor)
-        w.close()
+        for precursor_smi in precursor_smiles:
+            placed_precursors, properties = place_precursor(mol, precursor_smi, interacting_ids, closest_dists)
+            if placed_precursors:
+                if len(placed_precursors) > 0:
+                    all_precursors.extend(placed_precursors)
+                    all_properties.extend(properties)
+
+        if len(all_precursors) > 0:
+            w = Chem.SDWriter(output_file)
+            for precursor, properties in zip(all_precursors, all_properties):
+                add_properties_from_dict(precursor, properties)
+                w.write(precursor)
+            w.close()
+    except Exception as e:
+        print(e)
+        print('Failed for', sdf_file)
 
 
 def parallel_precursor_enumeration(sdf_files: list, pdb_files: list, output_files: list, n_cpus: int):
