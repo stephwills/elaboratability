@@ -104,3 +104,7 @@ def main():
     d = {'time': time_taken,
          'n_cpus': args.n_cpus}
     dump_json(d, timings_file)
+
+
+if __name__ == "__main__":
+    main()
