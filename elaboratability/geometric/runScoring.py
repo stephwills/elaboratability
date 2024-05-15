@@ -30,8 +30,8 @@ def eval_molecule(lig_name, name, output_dir, precursor, pdb_file, cloud):
     if not os.path.exists(results_dir):
         os.mkdir(results_dir)
 
-    results_file = os.path.join(results_dir, f"{name}_results.json")
-    scoring_file = os.path.join(results_dir, f"{name}_scored.json")
+    results_file = os.path.join(results_dir, f"{name}_results.pkl")
+    scoring_file = os.path.join(results_dir, f"{name}_scored.pkl")
 
     if os.path.exists(results_file):
         return None
