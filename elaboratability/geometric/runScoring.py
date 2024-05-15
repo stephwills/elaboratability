@@ -36,19 +36,23 @@ def eval_molecule(lig_name, name, output_dir, precursor, pdb_file, cloud):
     if os.path.exists(results_file):
         return None
 
-    start = time.time()
-    scorer = AnchorScorer(precursor, pdb_file, cloud)
-    scorer.prepare_molecules()
-    scorer.get_vectors()
-    scorer.evaluate_all_vectors()
-    scorer.binary_scorer()
-    end = time.time()
+    try:
+        start = time.time()
+        scorer = AnchorScorer(precursor, pdb_file, cloud)
+        scorer.prepare_molecules()
+        scorer.get_vectors()
+        scorer.evaluate_all_vectors()
+        scorer.binary_scorer()
+        end = time.time()
 
-    with open(results_file, 'wb') as handle:
-        pickle.dump(scorer.results, handle)
+        with open(results_file, 'wb') as handle:
+            pickle.dump(scorer.results, handle)
 
-    with open(scoring_file, 'wb') as handle:
-        pickle.dump(scorer.scored, handle)
+        with open(scoring_file, 'wb') as handle:
+            pickle.dump(scorer.scored, handle)
+    except Exception as e:
+        print('Error for', name, e)
+        dump_json(str(e), os.path.join(results_dir, 'error.json'))
 
     time_taken = end-start
     dump_json(time_taken, os.path.join(results_dir, 'time_taken.json'))
