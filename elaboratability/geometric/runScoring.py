@@ -12,7 +12,7 @@ import time
 from joblib import Parallel, delayed
 
 
-def eval_molecule(lig_name, name, output_dir, precursor, pdb_file, cloud):
+def eval_molecule(lig_name, name, output_dir, precursor, pdb_file, cloud, aizynth=False):
     """
 
     :param name:
@@ -38,13 +38,15 @@ def eval_molecule(lig_name, name, output_dir, precursor, pdb_file, cloud):
     start = time.time()
 
     try:
-
-        scorer = AnchorScorer(precursor, pdb_file, cloud)
+        if aizynth:
+            from elaboratability.react.reactAnchorScorer import ReactionAnchorScorer
+            scorer = ReactionAnchorScorer(precursor, pdb_file, cloud)
+        else:
+            scorer = AnchorScorer(precursor, pdb_file, cloud)
         scorer.prepare_molecules()
         scorer.get_vectors()
         scorer.evaluate_all_vectors()
         scorer.binary_scorer()
-
 
         with open(results_file, 'wb') as handle:
             pickle.dump(scorer.results, handle)
@@ -73,6 +75,7 @@ def main():
     parser.add_argument('--cloud_file')
     parser.add_argument('--output_dir')
     parser.add_argument('--n_cpus', type=int)
+    parser.add_argument('--aizynth', action='store_true')
     args = parser.parse_args()
 
     start = time.time()
@@ -107,7 +110,7 @@ def main():
 
     print('Beginning scoring')
     Parallel(n_jobs=args.n_cpus, backend='multiprocessing')(
-        delayed(eval_molecule)(lig_name, prec_name, args.output_dir, prec, pdb_file, cloud)
+        delayed(eval_molecule)(lig_name, prec_name, args.output_dir, prec, pdb_file, cloud, aizynth=args.aizynth)
         for lig_name, prec_name, prec, pdb_file in tqdm(zip(lig_names, prec_names, precursors, pdb_files), total=len(lig_names), position=0, leave=True)
     )
 
