@@ -1,6 +1,7 @@
 
 import os
 from argparse import ArgumentParser
+import pickle
 
 from elaboratability.geometric.anchorScorer import AnchorScorer
 from elaboratability.preprocessing.cloud import ClusterCloud
@@ -32,6 +33,9 @@ def eval_molecule(lig_name, name, output_dir, precursor, pdb_file, cloud):
     results_file = os.path.join(results_dir, f"{name}_results.json")
     scoring_file = os.path.join(results_dir, f"{name}_scored.json")
 
+    if os.path.exists(results_file):
+        return None
+
     start = time.time()
     scorer = AnchorScorer(precursor, pdb_file, cloud)
     scorer.prepare_molecules()
@@ -40,8 +44,12 @@ def eval_molecule(lig_name, name, output_dir, precursor, pdb_file, cloud):
     scorer.binary_scorer()
     end = time.time()
 
-    dump_json(scorer.results, results_file)
-    dump_json(scorer.scored, scoring_file)
+    with open(results_file, 'wb') as handle:
+        pickle.dump(scorer.results, handle)
+
+    with open(scoring_file, 'wb') as handle:
+        pickle.dump(scorer.scored, handle)
+
     time_taken = end-start
     dump_json(time_taken, os.path.join(results_dir, 'time_taken.json'))
 
