@@ -1,6 +1,11 @@
 archive/*
 notebooks/*
-data/*
+data/aizynthfinder/
+data/malhotra/
+data/reactants/
+data/decs_dict.json
+data/processed_cloud_data.pickle
+data/reactants.tar.gz
 *__pycache__*
 /*__pycache__*
 .idea/
