@@ -235,7 +235,89 @@ def align_cloud_to_vector(h_coords, neigh_coords, cloud_coords, cloud_attach_coo
     return all_coords
 
 
-def rotate_h_coords(h_coords, anchor_coord, angle, n_rotations):
+def get_coord_of_index(idx, mol):
+    conf = mol.GetConformer()
+    return np.array(conf.GetAtomPosition(idx))
+
+
+def get_coord_of_idxs(idxs, mol):
+    conf = mol.GetConformer()
+    return np.array([np.array(conf.GetAtomPosition(idx)) for idx in idxs])
+
+
+def get_vectors_with_coords(mol):
+    """
+
+    :param mol:
+    :return:
+    """
+    anchor_coordinates = {}
+    from elaboratability.geometric.vector import Vector
+    # TODO: this could be tidied and simplified if integrated into final method
+    anchor_check = {}
+    h_atoms = [at for at in range(mol.GetNumAtoms()) if mol.GetAtomWithIdx(at).GetAtomicNum() == 1]
+
+    # get all possible vectors from the molecule
+    h_pairs = get_hydrogen_vector_pairs(mol, False)
+    non_h_pairs = get_non_hydrogen_vector_pairs(mol)
+
+    # arrange to get all possible vectors according to anchor atom
+    for pair in h_pairs + non_h_pairs:
+        anchor, replace = pair[0], pair[1]
+        if anchor not in anchor_check:
+            anchor_check[anchor] = [replace]
+        else:
+            anchor_check[anchor].append(replace)
+
+    all_vectors = []
+    vector_id = 0
+
+    # if molecule bound to two/three hydrogen atoms only, rotate Hs to get several coords
+    for anchor in anchor_check:
+        anchor_coord = get_coord_of_index(anchor, mol)
+        n_h_atoms = len([at for at in anchor_check[anchor] if at in h_atoms])
+        if (len(anchor_check[anchor]) > 1) and (n_h_atoms == len(anchor_check[anchor])):
+            h_coords = get_coord_of_idxs(anchor_check[anchor], mol)
+            n_rotat = 0
+            if n_h_atoms == 2:
+                n_rotat = 2
+            if n_h_atoms == 3:
+                n_rotat = 1
+
+            rotat_coords = rotate_h_coords(h_coords,
+                                           anchor_coord,
+                                           60,
+                                           n_rotat)
+            all_coords = np.vstack((h_coords, rotat_coords))
+            for coord in all_coords:
+                vector = Vector(anchor,
+                                anchor_check[anchor],
+                                anchor_coord,
+                                coord,
+                                rotated=True,
+                                is_hyd=True)
+                all_vectors.append(vector)
+
+        else:
+            for replace_atom in anchor_check[anchor]:
+                is_hyd = replace_atom in h_atoms
+                replace_coord = get_coord_of_index(replace_atom, mol)
+                vector = Vector(anchor,
+                                [replace_atom],
+                                anchor_coord,
+                                replace_coord,
+                                rotated=False,
+                                is_hyd=is_hyd)
+                all_vectors.append(vector)
+
+    # assign an id to each vector
+    for id, vector in enumerate(all_vectors):
+        vector.vector_id = id
+
+    return all_vectors
+
+
+def rotate_h_coords(h_coords, anchor_coord, angle_degrees, n_rotations):
     """
 
     :param h_coords:
@@ -250,7 +332,7 @@ def rotate_h_coords(h_coords, anchor_coord, angle, n_rotations):
 
     all_new_h_coords = []
 
-    def rotate_coords(h_coords, anchor_coord, angle):
+    def rotate_coords(h_coords, anchor_coord, deg):
         """
 
         :param h_coords:
@@ -258,6 +340,8 @@ def rotate_h_coords(h_coords, anchor_coord, angle, n_rotations):
         :param angle:
         :return:
         """
+        import math
+        angle = math.radians(deg)
         new_h_coords = []
         for h_coord in h_coords:
             h_vector = h_coord - anchor_coord
@@ -281,8 +365,8 @@ def rotate_h_coords(h_coords, anchor_coord, angle, n_rotations):
 
     starting_coords = h_coords
     for rotation in range(n_rotations):
-        new_coords = np.array(rotate_coords(starting_coords, anchor_coord, angle))
-        all_new_h_coords.append(new_coords)
+        new_coords = np.array(rotate_coords(starting_coords, anchor_coord, angle_degrees))
+        all_new_h_coords.extend(new_coords)
         starting_coords = new_coords
 
-    return all_new_h_coords
+    return np.array(all_new_h_coords)
