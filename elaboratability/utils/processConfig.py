@@ -5,7 +5,7 @@ STOCK='zinc'
 EXPANSION_POLICY='uspto'
 FILTER_POLICY='uspto'
 VERBOSE=True
-ELEMENT_NAMES=['N', 'O', 'C', 'S', 'F', 'P', 'Cl', 'Mg', 'Br']
+ELEMENT_NAMES=['N', 'O', 'C', 'S', 'F', 'P', 'Cl', 'Mg', 'Br', 'B']
 ATOM_DICT = {
     'C': {'atomic_number': 6,
           'atomic_radii': 1.70},
@@ -24,7 +24,9 @@ ATOM_DICT = {
     'Mg': {'atomic_number': 12,
           'atomic_radii': 1.73},
     'Br': {'atomic_number': 35,
-          'atomic_radii': 1.85}
+          'atomic_radii': 1.85},
+    'B': {'atomic_number': 5,
+          'atomic_radii': 1.17}
 }
 CLUSTERING_DIST_THRESHOLD = 0.5
 CLUSTERED_CONFORMER_FILE = '/home/swills/Oxford/elaboratability/notebooks/12_evalWithClusteredPoints/12out.sdf'

@@ -70,8 +70,10 @@ def get_vector_atoms(mol, precursor, map):
     vectors_in_mol = []
     vectors = []
     vector_neighbours_in_precursor = []
+    vector_types = []
 
     for mol_at in mol_substruct_match:
+        vector_type = None
         # get which molecule is a vector atom by checking which has a neighbour not in the MCS
         mol_vector_neighbours = [atom.GetIdx() for atom in mol.GetAtomWithIdx(mol_at).GetNeighbors() if atom.GetIdx() not in mol_substruct_match]
 
@@ -91,6 +93,7 @@ def get_vector_atoms(mol, precursor, map):
             # if no neighbours, vector passes
             if len(vector_neighbours) == 0:
                 vector_check = True
+                vector_type = 'hydrogen'
 
             # else, check that attached neighbours are terminal atoms
             else:
@@ -99,13 +102,15 @@ def get_vector_atoms(mol, precursor, map):
                     if len(vector_neighbour_neighbours) == 0:
                         filt_neighbours.append(vector_neighbour)
                         vector_check = True
+                        vector_type = 'non-hydrogen'
 
             if vector_check:
                 vectors.append(vector)
                 vectors_in_mol.append(mol_at)
                 vector_neighbours_in_precursor.append(filt_neighbours)
+                vector_types.append(vector_type)
 
-    return vectors, vectors_in_mol, vector_neighbours_in_precursor
+    return vectors, vectors_in_mol, vector_neighbours_in_precursor, vector_types
 
 
 def constrained_embed_of_precursor(mol: Mol, precursor: Mol, mcs: Mol, map: dict):
