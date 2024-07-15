@@ -77,20 +77,28 @@ def place_precursor(mol: Mol, precursor_smi: str, int_idxs: list, atom_dists: di
 
     # for each map, generate placed precursors
     for map in maps:
-        vectors, vectors_molidx, vector_neighbours = get_vector_atoms(mol, precursor, map)
+        vectors, vectors_molidx, vector_neighbours, vector_types = get_vector_atoms(mol, precursor, map)
         if verbose: print('Vectors in mol:', vectors_molidx)
         passing_vectors = []
         passing_vector_neighbours = []
+        passing_vector_types = []
 
         # check if the elaboration from vector makes an interaction with the protein and
         # check if an atom in the elaboration is closer than an atom in the mcs
-        for vector, vector_mol, neighbours in zip(vectors, vectors_molidx, vector_neighbours):
+        for vector, vector_mol, neighbours, vector_type in zip(vectors, vectors_molidx, vector_neighbours, vector_types):
 
             check = check_elaboration_is_useful(mol, vector_mol, map, int_idxs, atom_dists)
             if check:
                 # print(vector, 'vector passes')
-                passing_vectors.append(vector)
-                passing_vector_neighbours.append(neighbours)
+                if vector_type == 'hydrogen':
+                    passing_vectors.append(vector)
+                    passing_vector_types.append(vector_type)
+                else:
+                    for neighbour in neighbours:
+                        passing_vectors.append(neighbour)
+                        passing_vector_types.append(vector_type)
+               #passing_vector_neighbours.append(neighbours)
+               #passing_vector_types.append(vector_type)
             # else:
                 # print(vector, 'vector fails')
 
@@ -100,14 +108,15 @@ def place_precursor(mol: Mol, precursor_smi: str, int_idxs: list, atom_dists: di
             # record properties in dict that can be added as mol props later
             passing_vectors = ",".join([str(i) for i in passing_vectors])
             properties['vectors'] = passing_vectors
-            passing_vector_neighbours_string = ['-'.join([str(i) for i in l]) for l in passing_vector_neighbours]
-            passing_vector_neighbours_string = ','.join(passing_vector_neighbours_string)
-            properties['vector_neighbours'] = passing_vector_neighbours_string
+            #passing_vector_neighbours_string = ['-'.join([str(i) for i in l]) for l in passing_vector_neighbours]
+            #passing_vector_neighbours_string = ','.join(passing_vector_neighbours_string)
+            #properties['vector_neighbours'] = passing_vector_neighbours_string
             mol_substruct_match_string = ','.join([str(i) for i in map.keys()])
             precursor_substruct_match_string = ','.join([str(i) for i in map.values()])
             properties['mol_substruct_match'] = mol_substruct_match_string
             properties['precursor_substruct_match'] = precursor_substruct_match_string
             properties['smiles'] = precursor_smi
+            properties['vector_types'] = ",".join([str(i) for i in passing_vector_types])
             placed_precursors.append(placed_precursor)
             property_dicts.append(properties)
 
