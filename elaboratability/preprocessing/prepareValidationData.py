@@ -123,7 +123,7 @@ def place_precursor(mol: Mol, precursor_smi: str, int_idxs: list, atom_dists: di
     return placed_precursors, property_dicts
 
 
-def retrieve_precursors_for_mol(pdb_file: str, output_file: str, sdf_file = None, mol = None):
+def retrieve_precursors_for_mol(pdb_file: str, sdf_file = None, lig_code: str = None, output_dir: str = None, mol = None):
     """
 
     :param mol:
@@ -132,11 +132,15 @@ def retrieve_precursors_for_mol(pdb_file: str, output_file: str, sdf_file = None
     :param output_file:
     :return:
     """
-    if os.path.exists(output_file):
+    if not os.path.exists(output_dir):
+        os.mkdir(output_dir)
+    if not os.path.exists(pdb_file):
+        print('Input pdb file does not exist')
         return None
-    if not os.path.exists(pdb_file) or not os.path.exists(sdf_file):
-        print('Input file does not exist')
-        return None
+    if sdf_file:
+        if not os.path.exists(sdf_file):
+            print('Input sdf file does not exist')
+            return None
 
     try:
         if sdf_file:
@@ -166,17 +170,19 @@ def retrieve_precursors_for_mol(pdb_file: str, output_file: str, sdf_file = None
                     all_properties.extend(properties)
 
         if len(all_precursors) > 0:
-            w = Chem.SDWriter(output_file)
-            for precursor, properties in zip(all_precursors, all_properties):
+
+            for i, (precursor, properties) in enumerate(zip(all_precursors, all_properties)):
+                output_file = os.path.join(output_dir, f"{lig_code}_{i}.sdf")
+                w = Chem.SDWriter(output_file)
                 add_properties_from_dict(precursor, properties)
                 w.write(precursor)
-            w.close()
+                w.close()
     except Exception as e:
         print(e)
-        print('Failed for', sdf_file)
+        print('Failed for', lig_code)
 
 
-def parallel_precursor_enumeration(sdf_files: list, pdb_files: list, output_files: list, n_cpus: int):
+def parallel_precursor_enumeration(sdf_files: list, pdb_files: list, lig_codes: list, output_dir: str, n_cpus: int):
     """
 
     :param sdf_files:
@@ -185,41 +191,38 @@ def parallel_precursor_enumeration(sdf_files: list, pdb_files: list, output_file
     :param n_cpus:
     :return:
     """
-    #pdb_file: str, output_file: str, sdf_file = None, mol = None
     Parallel(n_jobs=n_cpus, backend="multiprocessing")(
-        delayed(retrieve_precursors_for_mol)(pdb_file, output_file, sdf_file)
-        for sdf_file, pdb_file, output_file in tqdm(zip(sdf_files, pdb_files, output_files), position=0, leave=True, total=len(sdf_files))
+        delayed(retrieve_precursors_for_mol)(pdb_file, sdf_file, lig_code, output_dir)
+        for sdf_file, pdb_file, lig_code in tqdm(zip(sdf_files, pdb_files, lig_codes), position=0, leave=True, total=len(sdf_files))
     )
 
 
 def main():
     parser = ArgumentParser()
-    parser.add_argument('--txt_file', help='each line is comma delimited ligand_name, sdf file and pdb file')
+    parser.add_argument('--pdbbind_dir')
     parser.add_argument('--output_dir')
     parser.add_argument('--n_cpus', type=int)
     parser.add_argument('--parallel', action='store_true')
     args = parser.parse_args()
 
-    with open(args.txt_file, "r+") as f:
-        files = [x.strip() for x in f.readlines()]
-    ligands = [file.split(',')[0] for file in files]
-    sdf_files = [file.split(',')[1] for file in files]
-    pdb_files = [file.split(',')[2] for file in files]
-    output_files = [os.path.join(args.output_dir, f"{ligand}_precursors.sdf") for ligand in ligands]
+    dir = args.pdbbind_dir
+    lig_codes = [i for i in os.listdir(dir) if 'zip' not in i]
+    sdf_files = [os.path.join(dir, lig_code, f"{lig_code}_ligand.sdf") for lig_code in lig_codes]
+    pdb_files = [os.path.join(dir, lig_code, f"{lig_code}_protein_cleaned.pdb") for lig_code in lig_codes]
 
     start = time.time()
 
-    print(len(ligands), 'mols read')
+    print(len(lig_codes), 'mols read')
     if args.parallel:
-        parallel_precursor_enumeration(sdf_files, pdb_files, output_files, args.n_cpus)
+        parallel_precursor_enumeration(sdf_files, pdb_files, lig_codes, args.output_dir, args.n_cpus)
 
     else:
-        for sdf_file, pdb_file, output_file in tqdm(zip(sdf_files, pdb_files, output_files), position=0, leave=True, total=len(sdf_files)):
-            retrieve_precursors_for_mol(pdb_file, output_file, sdf_file)
+        for sdf_file, pdb_file, lig_code in tqdm(zip(sdf_files, pdb_files, lig_codes), position=0, leave=True, total=len(sdf_files)):
+            retrieve_precursors_for_mol(pdb_file, sdf_file, lig_code, args.output_dir)
 
     end = time.time()
     time_taken = round(end-start, 2)
-    d = {'n_mols': len(ligands),
+    d = {'n_mols': len(lig_codes),
          'time': time_taken}
     dump_json(d, os.path.join(args.output_dir, 'time_taken.json'))
 
