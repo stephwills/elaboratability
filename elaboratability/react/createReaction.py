@@ -58,6 +58,7 @@ def replace_heavy_atom_with_decorator(mol, anchor_atom, replaced_atom, dec_smi):
     new_mol = replace_hydrogen_with_decorator(intermed_mol, new_anchor_idx, new_replace_idx, dec_smi)
     return new_mol
 
+
 def switch_replaced_atom_with_hydrogen(mol, anchor_atom, replaced_atom):
     """
 
@@ -151,6 +152,27 @@ def create_reaction_smiles(mol, dec_smi, anchor_atom, replaced_atom, is_hydrogen
     return reactants, product_smi
 
 
+def create_reaction_smiles_for_decorators(mol, decorators, anchor_atom, replaced_atom, is_hydrogen):
+    """
+
+    :param mol:
+    :param decorators:
+    :param anchor_atom:
+    :param replaced_atom:
+    :param is_hydrogen:
+    :return:
+    """
+    all_reactants = []
+    all_products = []
+
+    for dec in decorators:
+        reactants, product_smi = create_reaction_smiles(mol, dec, anchor_atom, replaced_atom, is_hydrogen)
+        all_reactants.append(reactants)
+        all_products.append(product_smi)
+
+    return all_reactants, all_products
+
+
 def filter_single_rxn_with_aizynthfinder(reactant_smi, product_smi):
     """
 
@@ -165,7 +187,7 @@ def filter_single_rxn_with_aizynthfinder(reactant_smi, product_smi):
 
 
 def filter_multiple_rxns_for_vector_with_aizynthfinder(mol, anchor_atom, replace_atom, vector_is_hydrogen, decorators,
-                                            filter_cutoff=None, verbose=False):
+                                            filter_cutoff=None, verbose=False, return_reaction_smiles=False):
     """
 
     :param mol:
@@ -186,10 +208,16 @@ def filter_multiple_rxns_for_vector_with_aizynthfinder(mol, anchor_atom, replace
     filter_results = []
     filter_feas = []
 
+    all_reactants = []
+    all_products = []
+
     if verbose:
         print(len(decorators), 'decorators to evaluate')
     for decorator in tqdm(decorators, total=len(decorators), position=0, leave=True, disable=disable):
         reacts, prod = create_reaction_smiles(mol, decorator, anchor_atom, replace_atom, vector_is_hydrogen)
+        if return_reaction_smiles:
+            all_reactants.append(reacts)
+            all_products.append(prod)
         treemol = TreeMolecule(parent=None, smiles=prod)
         rxn = SmilesBasedRetroReaction(mol=treemol,
                                        reactants_str=reacts)
@@ -199,7 +227,11 @@ def filter_multiple_rxns_for_vector_with_aizynthfinder(mol, anchor_atom, replace
 
     if verbose:
         print(sum(filter_results), 'of', len(filter_results), 'pass filter')
-    return filter_results, filter_feas
+
+    if not return_reaction_smiles:
+        return filter_results, filter_feas
+    else:
+        return filter_results, filter_feas, all_reactants, all_products
 
 
 def filter_multiple_rxns_with_aizynthfinder(mol, anchor_atoms, replace_atoms, vectors_are_hydrogens, decorators,
@@ -221,7 +253,6 @@ def filter_multiple_rxns_with_aizynthfinder(mol, anchor_atoms, replace_atoms, ve
     filter_results = []
     filter_feas = []
 
-    from tqdm import tqdm
     for anchor_atom, replace_atom, is_hydrogen, decorator in tqdm(zip(anchor_atoms, replace_atoms, vectors_are_hydrogens, decorators), total=len(decorators), position=0, leave=True):
         reacts, prod = create_reaction_smiles(mol, decorator, anchor_atom, replace_atom, is_hydrogen)
         treemol = TreeMolecule(parent=None, smiles=prod)

@@ -2,6 +2,7 @@ import numpy as np
 
 ATOM_RADII = {
     1: 1.20,
+    5: 1.17,
     6: 1.70,
     7: 1.55,
     8: 1.52,

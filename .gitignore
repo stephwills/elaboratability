@@ -1,5 +1,5 @@
-archive/*
-notebooks/*
+archive/
+notebooks/
 data/aizynthfinder/
 data/malhotra/
 data/reactants/
@@ -10,4 +10,4 @@ data/reactants.tar.gz
 /*__pycache__*
 .idea/
 .ipynb_checkpoints/
-
+data/F2L
