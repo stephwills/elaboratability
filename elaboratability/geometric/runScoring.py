@@ -41,15 +41,24 @@ def eval_molecule(lig_name, name, output_dir, precursor, pdb_file, cloud, aizynt
         if aizynth:
             from elaboratability.react.reactAnchorScorer import ReactionAnchorScorer
             scorer = ReactionAnchorScorer(precursor, pdb_file, cloud)
+            keys = ['clashing_conf_ids', 'clashing_mol_ids', 'pdon_interactions', 'ldon_interactions', 'interacting_prot_ids', 'interacting_conf_ids', 'interacting_mol_ids', 'reacting_conf_ids', 'reacting_mol_ids', 'reacting_prot_ids']
         else:
             scorer = AnchorScorer(precursor, pdb_file, cloud)
+            keys = ['clashing_conf_ids', 'clashing_mol_ids', 'pdon_interactions', 'ldon_interactions', 'interacting_prot_ids', 'interacting_conf_ids', 'interacting_mol_ids']
         scorer.prepare_molecules()
         scorer.get_vectors()
         scorer.evaluate_all_vectors()
         scorer.binary_scorer()
 
         with open(results_file, 'wb') as handle:
-            pickle.dump(scorer.results, handle)
+            results = scorer.results.copy()
+            for vect in scorer.results:
+                for k in scorer.results[vect]:
+                    if k in keys:
+                        results[vect][k] = len(scorer.results[vect][k])
+                    else:
+                        results[vect][k] = scorer.results[vect][k]
+            pickle.dump(results, handle)
 
         with open(scoring_file, 'wb') as handle:
             pickle.dump(scorer.scored, handle)

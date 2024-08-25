@@ -283,6 +283,8 @@ def get_vectors_with_coords(mol):
                 n_rotat = 2
             if n_h_atoms == 3:
                 n_rotat = 1
+            if n_h_atoms == 6:  # TODO: check
+                n_rotat = 5
 
             rotat_coords = rotate_h_coords(h_coords,
                                            anchor_coord,
