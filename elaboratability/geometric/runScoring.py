@@ -77,7 +77,8 @@ def main():
     :return:
     """
     parser = ArgumentParser()
-    parser.add_argument('--txt_file', help='comma delimited file with name, sdf_file of precursor, pdb file for protein')
+    parser.add_argument('--precursor_dir')
+    parser.add_argument('--pdbbind_dir')
     parser.add_argument('--clustered_conformer_file')
     parser.add_argument('--clustered_conformer_json')
     parser.add_argument('--processed_data_file')
@@ -98,22 +99,12 @@ def main():
                          False)
     cloud.process_cloud()
 
-    with open(args.txt_file, "r+") as f:
-        lines = [x.strip() for x in f.readlines()]
-
-    lig_names, prec_names, precursors, pdb_files = [], [], [], []
-
-    print('Loading precursors from file')
-    for line in lines:
-        lig_name, sdf_file, pdb_file = line.split(',')
-        precs = [i for i in Chem.SDMolSupplier(sdf_file)]
-        for i, prec in enumerate(precs):
-            if prec:
-                prec_name = f"{lig_name}_prec-{i}"
-                precursors.append(prec)
-                lig_names.append(lig_name)
-                prec_names.append(prec_name)
-                pdb_files.append(pdb_file)
+    prec_files = [i for i in os.listdir(args.precursor_dir) if 'sdf' in i][:10]
+    prec_names = [i.replace('.sdf', '') for i in prec_files]
+    prec_files = [os.path.join(args.precursor_dir, i) for i in prec_files]
+    precursors = [Chem.SDMolSupplier(i)[0] for i in prec_files]
+    lig_names = [i.split('-')[0] for i in prec_names]
+    pdb_files = [os.path.join(args.pdbbind_dir, lig_code, f"{lig_code}_protein_cleaned.pdb") for lig_code in lig_names] #code_protein_cleaned.pdb
 
     print(len(lig_names), 'precursors loaded')
 
