@@ -6,8 +6,10 @@ data/reactants/
 data/decs_dict.json
 data/processed_cloud_data.pickle
 data/reactants.tar.gz
+data/model_preds
 *__pycache__*
 /*__pycache__*
 .idea/
 .ipynb_checkpoints/
 data/F2L
+data/steph_vector_labelling.csv

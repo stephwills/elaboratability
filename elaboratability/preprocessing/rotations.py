@@ -1,3 +1,8 @@
+"""
+Contains code to generate conformers for a set of decorators, align them all,
+rotate them and cluster the resulting conformations.
+"""
+
 import json
 from argparse import ArgumentParser
 
@@ -115,7 +120,7 @@ def align_conf(m, confId, ref_attach_coords, ref_adj_coords, return_mol=False):
 
 def get_anchor_mol():
     """
-    An anchor molecule used as reference coordinates for aligning all decorators. Coordinates are always the same.
+    An anchor molecule (CC) used as reference coordinates for aligning all decorators. Coordinates are always the same.
 
     :return:
     """
@@ -145,7 +150,7 @@ def embed(smi: str, num_confs: int):
     return mol, confIds
 
 
-def embed_and_align_to_anchor(smi: str, n_rotat: int):
+def embed_and_align_to_anchor(smi: str, n_rotat: int, n_conf=False):
     """
     Generate several embeddings for each decorator SMILES according to the number of rotatable bonds. Return the
     embedded molecule (has multiple conformers attached) and the number of conformers generated).
@@ -154,13 +159,14 @@ def embed_and_align_to_anchor(smi: str, n_rotat: int):
     :param n_rotat:
     :return:
     """
-    n_conf = None
-    if n_rotat <= 7:
-        n_conf = 50
-    if 8 <= n_rotat <= 12:
-        n_conf = 200
-    if n_rotat > 12:
-        n_conf = 300
+    if not n_conf:
+        n_conf = None
+        if n_rotat <= 7:
+            n_conf = 50
+        if 8 <= n_rotat <= 12:
+            n_conf = 200
+        if n_rotat > 12:
+            n_conf = 300
     emb, _ = embed(smi, n_conf)
     return emb, n_conf
 
@@ -255,27 +261,32 @@ def cluster_mol_conformers_wout_alignment(mol, n_cids, distThreshold=1.5):
 
 def cluster_rotations(mol, n_confs, n_rotats=12, distThreshold=1.5, angleInterval=30):
     """
+    Given a molecule with a set of RDKit conformers, rotate each conformer to get a larger set of conformers,
+    then cluster ALL of them and get a new molecule object
 
-    :param mol:
-    :param n_confs:
-    :param n_rotats:
-    :return:
+    :param mol: mol with multiple conformers
+    :param n_confs: number of conformers that have already been generated
+    :param n_rotats: number of times to rotate each conformer
+    :return: new mol having gone through conformer rotation/clustering
     """
-    if mol.GetNumAtoms() == 2:
+    if mol.GetNumAtoms() == 2:  # doesn't rotate if there's only two atoms (including attachment atom)
         return mol
     new_mol = Chem.Mol(mol)
     new_mol.RemoveAllConformers()
 
+    # for each conformer, generate a bunch of rotations around the attachment vector
     for i in range(n_confs):
         conf = mol.GetConformer(i)
         coord_idxs, new_coords = get_rotated_coords(mol, i, angleInterval)
-        for j, coords in enumerate(new_coords):
+        for j, coords in enumerate(new_coords):  # add each rotated conformer to new_mol
             new_conf_idx = i*(n_rotats) + j
             new_mol.AddConformer(conf, assignId=new_conf_idx)
             new_conf = new_mol.GetConformer(new_conf_idx)
             for idx, coord in zip(coord_idxs, coords):
                 new_conf.SetAtomPosition(idx, as_point3D(coord))
 
+    # across ALL the rotated conformers, cluster them (without alignment) using RMSD threshold
+    # add the cluster centroids to a new clustered_mol
     clustered_mol = Chem.Mol(mol)
     clustered_mol.RemoveAllConformers()
 
@@ -291,22 +302,24 @@ def cluster_rotations(mol, n_confs, n_rotats=12, distThreshold=1.5, angleInterva
 
 def main():
     parser = ArgumentParser()
-    parser.add_argument('--decs_dict_json', help='a json file containing a list of decorator SMILES')
-    parser.add_argument('--threshold_frequency', type=int)
-    parser.add_argument('--minimum_atoms', type=int, default=3)
+    parser.add_argument('--decs_dict_json',
+                        help="a json file containing a dictionary of decorator SMILES as keys and the frequency of occurrence as the values, e.g. {'[*]C': 28952587, ... }")
+    parser.add_argument('--threshold_frequency', type=int,
+                        help="filter the decorators according to those that occur at least X times")
+    parser.add_argument('--minimum_atoms', type=int, default=3,
+                        help="minimum number of atoms the decorators should contain (includes attachment point atom!)")
     parser.add_argument('--n_cpus', type=int)
-    parser.add_argument('--output_sdf')
-    parser.add_argument('--output_json')
-    parser.add_argument('--n_rotations', type=int, default=12)
-    parser.add_argument('--distThreshold', type=float, default=1.5)
+    parser.add_argument('--output_sdf', help='output file for the conformers after rotating and clustering')
+    parser.add_argument('--output_json', help='output file to contain data related to the output conformers in the SDF')
+    parser.add_argument('--n_rotations', type=int, default=12, help='number of times to rotate each conformer')
+    parser.add_argument('--distThreshold', type=float, default=1.5, help='RMSD threshold for clustering all the conformers after rotating each of them')
     parser.add_argument('--angle_interval', type=int, default=30)
     args = parser.parse_args()
 
     # read in decorators and calculate number of rotatable bonds (to decide how many embeddings to create)
     decs_dict = load_json(args.decs_dict_json)
-    counts = list(decs_dict.values())
-    common_decs = [k for k, v in tqdm(decs_dict.items()) if v >= args.threshold_frequency]
-    common_decs = [smi for smi in common_decs if Chem.MolFromSmiles(smi).GetNumAtoms() >= args.minimum_atoms]
+    common_decs = [k for k, v in tqdm(decs_dict.items()) if v >= args.threshold_frequency]  # get those that occur at least X times
+    common_decs = [smi for smi in common_decs if Chem.MolFromSmiles(smi).GetNumAtoms() >= args.minimum_atoms]  # check number of atoms
     mols = [Chem.MolFromSmiles(s) for s in common_decs]
     rotats = [rdMolDescriptors.CalcNumRotatableBonds(mol) for mol in mols]
     print(len(mols), 'elaborations to be used to create conformers')

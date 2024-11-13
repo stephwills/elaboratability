@@ -33,8 +33,8 @@ class ClusterCloud():
                  reprocess_cloud=config.REPROCESS_CLOUD):
         """
 
-        :param conf_file:
-        :param info_file:
+        :param conf_file: created by rotations.py
+        :param info_file: created by rotations.py
         :param data_file:
         :param reprocess_data:
         """
@@ -129,8 +129,8 @@ class ClusterCloud():
             for centroid_idx, centroid in tqdm(enumerate(centroids), total=len(centroids), position=0, leave=True):
                 centroid_mol_ids = self._get_points_from_labels(mol_ids, labels, centroid_idx)
                 centroid_conf_ids = self._get_points_from_labels(conf_ids, labels, centroid_idx)
-                centroid_atom_ids = self._get_points_from_labels(atom_ids, labels, centroid_idx)
-                centroid_coord_ids = self._get_points_from_labels(coord_ids, labels, centroid_idx)
+                # centroid_atom_ids = self._get_points_from_labels(atom_ids, labels, centroid_idx)
+                # centroid_coord_ids = self._get_points_from_labels(coord_ids, labels, centroid_idx)
                 centroid_is_don = self._get_points_from_labels(is_don, labels, centroid_idx)
                 centroid_is_acc = self._get_points_from_labels(is_acc, labels, centroid_idx)
 

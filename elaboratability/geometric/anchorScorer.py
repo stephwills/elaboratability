@@ -129,6 +129,7 @@ class AnchorScorer():
 
     def check_for_clashes(self, dists, mol_radii):
         """
+        Some borrowed from https://www.blopig.com/blog/2023/05/checking-your-pdb-file-for-clashing-atoms/
 
         :param dists:
         :param mol_radii:

@@ -99,13 +99,12 @@ def main():
                          False)
     cloud.process_cloud()
 
-    prec_files = [i for i in os.listdir(args.precursor_dir) if 'sdf' in i][:10]
+    prec_files = [i for i in os.listdir(args.precursor_dir) if 'sdf' in i]
     prec_names = [i.replace('.sdf', '') for i in prec_files]
     prec_files = [os.path.join(args.precursor_dir, i) for i in prec_files]
     precursors = [Chem.SDMolSupplier(i)[0] for i in prec_files]
     lig_names = [i.split('-')[0] for i in prec_names]
     pdb_files = [os.path.join(args.pdbbind_dir, lig_code, f"{lig_code}_protein_cleaned.pdb") for lig_code in lig_names] #code_protein_cleaned.pdb
-
     print(len(lig_names), 'precursors loaded')
 
     print('Beginning scoring')
