@@ -3,7 +3,6 @@ notebooks/
 data/aizynthfinder/
 data/malhotra/
 data/reactants/
-data/decs_dict.json
 data/processed_cloud_data.pickle
 data/reactants.tar.gz
 data/model_preds
