@@ -103,3 +103,11 @@ For each ligand, AiZynthFinder is used to propose precursors. The MCS between th
 The relevant vector atom(s) is then recorded -- filtering is applied to precursors and vectors (as described in thesis chapter). This creates SDF files for precursors where the vector atoms are stored as a mol prop (there may be multiple precursors for a single ligand so they are named as CODE-IDX.sdf).
 
 One thing to note is how to label vector atoms. In the code, I differentiated between vectors that are bound to a hydrogen or a terminal atom (where the hydrogen or attached atom is replaced by the elaboration, and the originating atom in the vector is labelled as the vector atom). This is useful for this method because it affects the chemical feasibility evaluation, however, for the DL method I did not differentiate between the two types. This should be considered in future iterations of the tool!
+
+## Data
+
+Precursors generated for PDBbind ligands are provided in `data/PDBbind_synthetic_set/precursors`. The original labelling scheme for vectors is in the `lib_vectors` sub-directory. The updated labelling scheme (used by the EGNN) is in the `egnn_vectors` sub-directory.
+
+The small set of Malhotra data is provided in `data/Malhotra_set/malhotra_data.zip`. I think they may require more cleaning (i.e. removing ions etc.)! Google Colab to allow others to visualize and label vectors is provided here: https://colab.research.google.com/drive/1oAenVKBOiZmIBsAwi9aEM6KdMuXm06K5#scrollTo=KzSt5wh6ITfO.
+
+The poorly done manual labelling (done by myself) is in `steph_vector_labelling.csv`.
